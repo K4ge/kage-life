@@ -66,12 +66,10 @@
 
     <view class="bottom-nav">
       <view class="nav-item" @tap="goTimeline">
-        <view class="nav-icon muted">📅</view>
-        <text class="nav-label">时间线</text>
+        <text class="nav-label">Event</text>
       </view>
       <view class="nav-item active">
-        <view class="nav-icon">✅</view>
-        <text class="nav-label">待办</text>
+        <text class="nav-label main">Todo</text>
       </view>
     </view>
   </view>
@@ -84,13 +82,13 @@ import { onLoad } from "@dcloudio/uni-app"
 const BASE_URL = "http://127.0.0.1:8000/api"
 
 const tabs = [
-  { key: "all", label: "全部" },
   { key: "today", label: "今天到期" },
+  { key: "all", label: "全部" },
   { key: "important", label: "仅重要" },
   { key: "done", label: "已完成" }
 ]
 
-const activeTab = ref("all")
+const activeTab = ref("today")
 const items = ref([])
 const stats = ref({ total: 0, done: 0, todo: 0 })
 const listLoading = ref(false)
@@ -126,7 +124,7 @@ const statText = computed(() => {
 })
 
 onLoad(() => {
-  fetchTodos()
+  fetchTodos("today")
 })
 
 const fetchTodos = (tab = activeTab.value) => {
@@ -357,21 +355,12 @@ const goTimeline = () => {
 }
 
 .btn {
-<<<<<<< ours
   padding: 8rpx 16rpx;
   border-radius: 8rpx;
   font-size: 20rpx;
   font-weight: 600;
   text-align: center;
   min-width: 96rpx;
-=======
-  padding: 12rpx 22rpx;
-  border-radius: 12rpx;
-  font-size: 24rpx;
-  font-weight: 600;
-  text-align: center;
-  min-width: 140rpx;
->>>>>>> theirs
 }
 
 .btn.primary {
@@ -406,13 +395,13 @@ const goTimeline = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 140rpx;
+  height: 120rpx;
   background-color: #ffffff;
   border-top: 1rpx solid #e5e5e5;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding-bottom: 20rpx;
+  padding-bottom: 16rpx;
   z-index: 900;
 }
 
@@ -420,32 +409,24 @@ const goTimeline = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10rpx;
-  color: #8a8a8a;
+  justify-content: center;
+  flex: 1;
+  color: #7a7f8c;
   font-size: 24rpx;
+  padding: 10rpx 0;
 }
 
 .nav-item.active {
-  color: #222222;
+  color: #1f2d4a;
   font-weight: 700;
-}
-
-.nav-icon {
-  width: 58rpx;
-  height: 58rpx;
-  border-radius: 14rpx;
-  background: linear-gradient(135deg, #daf1df, #b5e5c7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 30rpx;
-}
-
-.nav-icon.muted {
-  background: linear-gradient(135deg, #e5e9ff, #d1d9ff);
 }
 
 .nav-label {
   font-size: 24rpx;
+}
+
+.nav-label.main {
+  font-size: 26rpx;
+  letter-spacing: 0.4rpx;
 }
 </style>
