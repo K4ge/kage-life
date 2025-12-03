@@ -1,13 +1,5 @@
 <template>
   <view class="todo-page">
-    <view class="top">
-      <view>
-        <view class="title">待办清单</view>
-        <view class="sub">今天：保持专注，做完就勾掉</view>
-      </view>
-      <view class="sync-tag">与 Timeline+ 对应</view>
-    </view>
-
     <view class="tabs">
       <view
         v-for="tab in tabs"
@@ -40,16 +32,12 @@
             <text class="card-title" :class="{ done: item.is_done }">
               {{ item.title }}
             </text>
-            <view
-              class="tag"
-              :class="item.is_done ? 'tag-done' : tagClass(item.priority)"
-            >
-              {{ item.is_done ? '已完成' : tagLabel(item.priority) }}
-            </view>
+            <text class="card-time" v-if="deadlineLabel(item)">
+              {{ deadlineLabel(item) }}
+            </text>
           </view>
 
           <view class="card-meta">
-            <text class="deadline">截止：{{ deadlineLabel(item) }}</text>
             <text v-if="item.note" class="note">{{ item.note }}</text>
           </view>
 
@@ -150,7 +138,10 @@ const fetchTodos = (tab = activeTab.value) => {
     data: { tab },
     success: (res) => {
       if (res.statusCode === 200 && res.data) {
-        items.value = res.data.items || []
+        const list = res.data.items || []
+        // 前端按重要程度排序：3 > 2 > 1
+        list.sort((a, b) => (b.priority || 0) - (a.priority || 0))
+        items.value = list
         stats.value = res.data.stats || { total: 0, done: 0, todo: 0 }
       } else {
         uni.showToast({ title: "加载失败", icon: "none" })
@@ -170,21 +161,8 @@ const switchTab = (tab) => {
   fetchTodos(tab)
 }
 
-const tagLabel = (priority) => {
-  if (priority === 3) return "重要"
-  if (priority === 1) return "不急"
-  return "普通"
-}
-
-const tagClass = (priority) => {
-  if (priority === 3) return "tag-red"
-  if (priority === 1) return "tag-green"
-  return "tag-yellow"
-}
-
 const deadlineLabel = (item) => {
   const dateStr = item.deadline_date
-  const timeStr = item.deadline_time
   let label = ""
   if (dateStr === todayStr()) {
     label = "今天"
@@ -192,9 +170,6 @@ const deadlineLabel = (item) => {
     label = "明天"
   } else {
     label = dateStr || "未设置"
-  }
-  if (timeStr) {
-    return `${label} ${timeStr}`
   }
   return label
 }
@@ -264,41 +239,14 @@ const goTimeline = () => {
 .todo-page {
   min-height: 100vh;
   background: #f5f6fb;
-  padding: 28rpx 28rpx 200rpx;
+  padding: 10rpx 28rpx 200rpx;
   box-sizing: border-box;
-}
-
-.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20rpx;
-}
-
-.title {
-  font-size: 36rpx;
-  font-weight: 700;
-  color: #1e1f24;
-}
-
-.sub {
-  margin-top: 6rpx;
-  color: #6b7080;
-  font-size: 26rpx;
-}
-
-.sync-tag {
-  padding: 12rpx 20rpx;
-  background: #f0f4ff;
-  color: #3a64ff;
-  border-radius: 28rpx;
-  font-size: 24rpx;
 }
 
 .tabs {
   display: flex;
   gap: 18rpx;
-  margin: 24rpx 0 12rpx;
+  margin: 12rpx 0 12rpx;
   flex-wrap: wrap;
 }
 
@@ -311,14 +259,14 @@ const goTimeline = () => {
 }
 
 .tab-item.active {
-  background: linear-gradient(135deg, #1e2b5f, #2a3d7b);
-  color: #ffffff;
+  background: #e2e6f5;
+  color: #1f2d4a;
   font-weight: 600;
 }
 
 .stat-line {
-  color: #6b7080;
-  font-size: 26rpx;
+  color: #7c8090;
+  font-size: 24rpx;
   margin-bottom: 20rpx;
 }
 
@@ -332,8 +280,8 @@ const goTimeline = () => {
   position: relative;
   background: #ffffff;
   border-radius: 22rpx;
-  padding: 26rpx 22rpx 20rpx 26rpx;
-  box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.04);
+  padding: 22rpx 20rpx 18rpx 24rpx;
+  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.02);
 }
 
 .todo-card .left-bar {
@@ -341,20 +289,20 @@ const goTimeline = () => {
   left: 0;
   top: 18rpx;
   bottom: 18rpx;
-  width: 10rpx;
+  width: 8rpx;
   border-radius: 10rpx;
 }
 
 .priority-3 .left-bar {
-  background: linear-gradient(180deg, #ff6b6b, #ff3b30);
+  background: linear-gradient(180deg, #ffd7db, #ffb4bc);
 }
 
 .priority-2 .left-bar {
-  background: linear-gradient(180deg, #f7b733, #f57c00);
+  background: linear-gradient(180deg, #ffe9c8, #ffd9a1);
 }
 
 .priority-1 .left-bar {
-  background: linear-gradient(180deg, #7ed957, #33b249);
+  background: linear-gradient(180deg, #d7f1e2, #b8e2c9);
 }
 
 .card-content {
@@ -364,15 +312,20 @@ const goTimeline = () => {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  margin-bottom: 10rpx;
+  gap: 10rpx;
+  margin-bottom: 4rpx;
 }
 
 .card-title {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 700;
-  color: #1d1f24;
+  color: #1f2430;
   flex: 1;
+}
+
+.card-time {
+  font-size: 22rpx;
+  color: #586075;
 }
 
 .card-title.done {
@@ -380,37 +333,13 @@ const goTimeline = () => {
   text-decoration: line-through;
 }
 
-.tag {
-  padding: 10rpx 18rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  color: #ffffff;
-}
-
-.tag-red {
-  background: linear-gradient(135deg, #ff6b6b, #ff3b30);
-}
-
-.tag-yellow {
-  background: linear-gradient(135deg, #f7b733, #f57c00);
-}
-
-.tag-green {
-  background: linear-gradient(135deg, #70d16b, #3ab54a);
-}
-
-.tag-done {
-  background: #e1e6ef;
-  color: #4c5a6e;
-}
-
 .card-meta {
   display: flex;
   flex-direction: column;
   gap: 8rpx;
-  color: #5d6577;
-  font-size: 26rpx;
-  margin-bottom: 14rpx;
+  color: #667080;
+  font-size: 24rpx;
+  margin-bottom: 10rpx;
 }
 
 .deadline {
@@ -418,42 +347,51 @@ const goTimeline = () => {
 }
 
 .note {
-  color: #8892a7;
+  color: #8a92a3;
 }
 
 .card-actions {
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
   margin-top: 6rpx;
 }
 
 .btn {
-  padding: 14rpx 26rpx;
-  border-radius: 14rpx;
-  font-size: 26rpx;
+<<<<<<< ours
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  text-align: center;
+  min-width: 96rpx;
+=======
+  padding: 12rpx 22rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
   font-weight: 600;
   text-align: center;
   min-width: 140rpx;
+>>>>>>> theirs
 }
 
 .btn.primary {
-  background: #0f1f4b;
-  color: #ffffff;
+  background: #eef2ff;
+  color: #3a4cce;
 }
 
 .btn.ghost {
-  background: #eef1f7;
-  color: #1f2a3d;
+  background: #f5f6fa;
+  color: #2f3542;
 }
 
 .btn.danger {
   background: #ffffff;
-  color: #d83c3c;
-  border: 2rpx solid #f1c7c7;
+  color: #d65a5a;
+  border: 2rpx solid #f7dada;
 }
 
 .todo-card.is-done {
-  background: #f4f6fa;
+  background: #f6f7fb;
 }
 
 .empty {

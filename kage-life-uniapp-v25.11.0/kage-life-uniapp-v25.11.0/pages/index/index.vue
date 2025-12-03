@@ -73,12 +73,10 @@
     <!-- 底部切换 -->
     <view class="bottom-nav">
       <view class="nav-item active">
-        <view class="nav-icon">📅</view>
-        <text class="nav-label">时间线</text>
+        <text class="nav-label main">Event</text>
       </view>
       <view class="nav-item" @tap="goTodo">
-        <view class="nav-icon">✅</view>
-        <text class="nav-label">待办</text>
+        <text class="nav-label">Todo</text>
       </view>
     </view>
   </view>
@@ -290,7 +288,7 @@ const onDateChange = (e) => {
 }
 
 const goTodo = () => {
-  uni.navigateTo({
+  uni.redirectTo({
     url: '/pages/todo/index'
   })
 }
@@ -376,19 +374,20 @@ const goTodo = () => {
   position: fixed;
   right: 40rpx;
   bottom: 180rpx; /* 提高以避开底部导航 */
-  width: 96rpx;
-  height: 96rpx;
+  width: 90rpx;
+  height: 90rpx;
   border-radius: 50%;
-  background-color: #409eff;
+  background: linear-gradient(135deg, #eef2ff, #e4e9ff);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12rpx 26rpx rgba(0, 0, 0, 0.16);
+  z-index: 950;
 }
 
 .fab-plus {
-  color: #fff;
-  font-size: 60rpx;
+  color: #3d4ed1;
+  font-size: 52rpx;
   line-height: 1;
 }
 
@@ -480,13 +479,13 @@ const goTodo = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 140rpx;
+  height: 120rpx;
   background-color: #ffffff;
   border-top: 1rpx solid #e5e5e5;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding-bottom: 20rpx;
+  padding-bottom: 16rpx;
   z-index: 900;
 }
 
@@ -494,24 +493,20 @@ const goTodo = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10rpx;
-  color: #8a8a8a;
+  justify-content: center;
+  flex: 1;
+  color: #7a7f8c;
   font-size: 24rpx;
+  padding: 10rpx 0;
 }
 
 .nav-item.active {
-  color: #222222;
-  font-weight: 600;
+  color: #1f2d4a;
+  font-weight: 700;
 }
 
-.nav-icon {
-  width: 58rpx;
-  height: 58rpx;
-  border-radius: 14rpx;
-  background: linear-gradient(135deg, #e5e9ff, #d1d9ff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 30rpx;
+.nav-label.main {
+  font-size: 26rpx;
+  letter-spacing: 0.4rpx;
 }
 </style>

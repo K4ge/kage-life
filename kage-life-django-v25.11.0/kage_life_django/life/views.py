@@ -103,6 +103,15 @@ def event_create(request):
         updated_at=local_now,
     )
 
+    return JsonResponse(
+        {
+            'id': event.id,
+            'title': event.title,
+            'start_time': event.start_time.strftime('%H:%M') if event.start_time else None
+        },
+        status=201,
+        json_dumps_params={'ensure_ascii': False},
+    )
 
 def _serialize_todo(todo):
     done_at_str = None
@@ -169,6 +178,61 @@ def todo_list(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def todo_create(request):
+    """
+    POST /api/todos/create/
+    body/form:
+      title: 必填
+      deadline_date: YYYY-MM-DD
+      priority: 1/2/3 (默认2)
+    其他字段走默认：is_done=0, deadline_time=None
+    """
+    # 兼容 form 与 json
+    payload = {}
+    if request.body:
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            payload = {}
+
+    title = request.POST.get('title') or payload.get('title')
+    if not title:
+        return JsonResponse({'error': 'title is required'}, status=400)
+
+    deadline_date = request.POST.get('deadline_date') or payload.get('deadline_date')
+    parsed_date = None
+    if deadline_date:
+        try:
+            parsed_date = datetime.strptime(deadline_date, "%Y-%m-%d").date()
+        except ValueError:
+            return JsonResponse({'error': 'deadline_date must be YYYY-MM-DD'}, status=400)
+
+    priority = request.POST.get('priority') or payload.get('priority') or 2
+    try:
+        priority = int(priority)
+    except Exception:
+        priority = 2
+    if priority not in (1, 2, 3):
+        priority = 2
+
+    now_local = timezone.now().astimezone(ZoneInfo('Asia/Shanghai'))
+    todo = Todo.objects.create(
+        title=title,
+        priority=priority,
+        deadline_date=parsed_date,
+        deadline_time=None,
+        is_done=0,
+        done_at=None,
+        note=None,
+        created_at=now_local,
+        updated_at=now_local,
+    )
+
+    return JsonResponse({'item': _serialize_todo(todo)}, status=201, json_dumps_params={'ensure_ascii': False})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def todo_status(request, todo_id: int):
     """
     POST /api/todos/<id>/status
@@ -216,9 +280,3 @@ def todo_delete(request, todo_id: int):
 
     todo.delete()
     return JsonResponse({'status': 'ok'})
-
-    return JsonResponse(
-        {'id': event.id, 'title': event.title, 'start_time': event.start_time.strftime('%H:%M') if event.start_time else None},
-        status=201,
-        json_dumps_params={'ensure_ascii': False},
-    )
