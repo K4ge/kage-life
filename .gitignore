@@ -1,0 +1,3 @@
+# 忽略 Python 虚拟环境
+kage-life-django-v25.11.0/kage-life/
+kage-life-django-v25.11.0/kage_life_django/.idea

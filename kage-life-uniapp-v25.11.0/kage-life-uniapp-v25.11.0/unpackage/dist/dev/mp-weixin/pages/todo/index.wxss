@@ -1,0 +1,211 @@
+
+.todo-page.data-v-7167769e {
+  min-height: 100vh;
+  background: #f5f6fb;
+  padding: 28rpx 28rpx 200rpx;
+  box-sizing: border-box;
+}
+.top.data-v-7167769e {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.title.data-v-7167769e {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1e1f24;
+}
+.sub.data-v-7167769e {
+  margin-top: 6rpx;
+  color: #6b7080;
+  font-size: 26rpx;
+}
+.sync-tag.data-v-7167769e {
+  padding: 12rpx 20rpx;
+  background: #f0f4ff;
+  color: #3a64ff;
+  border-radius: 28rpx;
+  font-size: 24rpx;
+}
+.tabs.data-v-7167769e {
+  display: flex;
+  gap: 18rpx;
+  margin: 24rpx 0 12rpx;
+  flex-wrap: wrap;
+}
+.tab-item.data-v-7167769e {
+  padding: 16rpx 26rpx;
+  border-radius: 999rpx;
+  background: #f0f1f5;
+  color: #4e5364;
+  font-size: 26rpx;
+}
+.tab-item.active.data-v-7167769e {
+  background: linear-gradient(135deg, #1e2b5f, #2a3d7b);
+  color: #ffffff;
+  font-weight: 600;
+}
+.stat-line.data-v-7167769e {
+  color: #6b7080;
+  font-size: 26rpx;
+  margin-bottom: 20rpx;
+}
+.card-list.data-v-7167769e {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+.todo-card.data-v-7167769e {
+  position: relative;
+  background: #ffffff;
+  border-radius: 22rpx;
+  padding: 26rpx 22rpx 20rpx 26rpx;
+  box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.04);
+}
+.todo-card .left-bar.data-v-7167769e {
+  position: absolute;
+  left: 0;
+  top: 18rpx;
+  bottom: 18rpx;
+  width: 10rpx;
+  border-radius: 10rpx;
+}
+.priority-3 .left-bar.data-v-7167769e {
+  background: linear-gradient(180deg, #ff6b6b, #ff3b30);
+}
+.priority-2 .left-bar.data-v-7167769e {
+  background: linear-gradient(180deg, #f7b733, #f57c00);
+}
+.priority-1 .left-bar.data-v-7167769e {
+  background: linear-gradient(180deg, #7ed957, #33b249);
+}
+.card-content.data-v-7167769e {
+  margin-left: 20rpx;
+}
+.card-header.data-v-7167769e {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-bottom: 10rpx;
+}
+.card-title.data-v-7167769e {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1d1f24;
+  flex: 1;
+}
+.card-title.done.data-v-7167769e {
+  color: #93a0b4;
+  text-decoration: line-through;
+}
+.tag.data-v-7167769e {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: #ffffff;
+}
+.tag-red.data-v-7167769e {
+  background: linear-gradient(135deg, #ff6b6b, #ff3b30);
+}
+.tag-yellow.data-v-7167769e {
+  background: linear-gradient(135deg, #f7b733, #f57c00);
+}
+.tag-green.data-v-7167769e {
+  background: linear-gradient(135deg, #70d16b, #3ab54a);
+}
+.tag-done.data-v-7167769e {
+  background: #e1e6ef;
+  color: #4c5a6e;
+}
+.card-meta.data-v-7167769e {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  color: #5d6577;
+  font-size: 26rpx;
+  margin-bottom: 14rpx;
+}
+.deadline.data-v-7167769e {
+  font-weight: 600;
+}
+.note.data-v-7167769e {
+  color: #8892a7;
+}
+.card-actions.data-v-7167769e {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 6rpx;
+}
+.btn.data-v-7167769e {
+  padding: 14rpx 26rpx;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  text-align: center;
+  min-width: 140rpx;
+}
+.btn.primary.data-v-7167769e {
+  background: #0f1f4b;
+  color: #ffffff;
+}
+.btn.ghost.data-v-7167769e {
+  background: #eef1f7;
+  color: #1f2a3d;
+}
+.btn.danger.data-v-7167769e {
+  background: #ffffff;
+  color: #d83c3c;
+  border: 2rpx solid #f1c7c7;
+}
+.todo-card.is-done.data-v-7167769e {
+  background: #f4f6fa;
+}
+.empty.data-v-7167769e {
+  text-align: center;
+  color: #96a0b1;
+  padding: 40rpx 0;
+  font-size: 26rpx;
+}
+.bottom-nav.data-v-7167769e {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 140rpx;
+  background-color: #ffffff;
+  border-top: 1rpx solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: 20rpx;
+  z-index: 900;
+}
+.nav-item.data-v-7167769e {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  color: #8a8a8a;
+  font-size: 24rpx;
+}
+.nav-item.active.data-v-7167769e {
+  color: #222222;
+  font-weight: 700;
+}
+.nav-icon.data-v-7167769e {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #daf1df, #b5e5c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+.nav-icon.muted.data-v-7167769e {
+  background: linear-gradient(135deg, #e5e9ff, #d1d9ff);
+}
+.nav-label.data-v-7167769e {
+  font-size: 24rpx;
+}

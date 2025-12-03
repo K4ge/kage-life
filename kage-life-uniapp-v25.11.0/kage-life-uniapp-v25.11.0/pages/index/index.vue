@@ -69,6 +69,18 @@
     <view class="fab" @tap="onAdd">
       <text class="fab-plus">+</text>
     </view>
+
+    <!-- 底部切换 -->
+    <view class="bottom-nav">
+      <view class="nav-item active">
+        <view class="nav-icon">📅</view>
+        <text class="nav-label">时间线</text>
+      </view>
+      <view class="nav-item" @tap="goTodo">
+        <view class="nav-icon">✅</view>
+        <text class="nav-label">待办</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -276,12 +288,18 @@ const onDateChange = (e) => {
   if (!value) return
   fetchEvents(value)
 }
+
+const goTodo = () => {
+  uni.navigateTo({
+    url: '/pages/todo/index'
+  })
+}
 </script>
 
 <style scoped>
 .page {
   padding: 24rpx;
-  padding-bottom: 120rpx;
+  padding-bottom: 220rpx; /* 给底部导航+悬浮按钮留空间 */
 }
 
 .header {
@@ -357,7 +375,7 @@ const onDateChange = (e) => {
 .fab {
   position: fixed;
   right: 40rpx;
-  bottom: 60rpx;
+  bottom: 180rpx; /* 提高以避开底部导航 */
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
@@ -455,5 +473,45 @@ const onDateChange = (e) => {
   margin-top: 24rpx;
   display: flex;
   justify-content: flex-end;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 140rpx;
+  background-color: #ffffff;
+  border-top: 1rpx solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: 20rpx;
+  z-index: 900;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  color: #8a8a8a;
+  font-size: 24rpx;
+}
+
+.nav-item.active {
+  color: #222222;
+  font-weight: 600;
+}
+
+.nav-icon {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #e5e9ff, #d1d9ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
 }
 </style>
