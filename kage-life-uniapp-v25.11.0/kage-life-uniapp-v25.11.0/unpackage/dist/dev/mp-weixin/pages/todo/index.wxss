@@ -100,19 +100,19 @@
   margin-top: 6rpx;
 }
 .btn.data-v-7167769e {
-  padding: 6rpx 14rpx;
+  padding: 8rpx 16rpx;
   border-radius: 8rpx;
   font-size: 20rpx;
   font-weight: 600;
   text-align: center;
-  min-width: 90rpx;
+  min-width: 96rpx;
 }
 .btn.primary.data-v-7167769e {
-  background: #f4f6ff;
-  color: #3d4ed1;
+  background: #eef2ff;
+  color: #3a4cce;
 }
 .btn.ghost.data-v-7167769e {
-  background: #f7f8fb;
+  background: #f5f6fa;
   color: #2f3542;
 }
 .btn.danger.data-v-7167769e {
@@ -163,104 +163,4 @@
 .nav-label.main.data-v-7167769e {
   font-size: 26rpx;
   letter-spacing: 0.4rpx;
-}
-.fab.data-v-7167769e {
-  position: fixed;
-  right: 34rpx;
-  bottom: 180rpx;
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #eef2ff, #e4e9ff);
-  box-shadow: 0 12rpx 24rpx rgba(0, 0, 0, 0.14);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 950;
-}
-.fab-plus.data-v-7167769e {
-  color: #3d4ed1;
-  font-size: 48rpx;
-  line-height: 1;
-}
-
-/* 添加弹窗 */
-.add-mask.data-v-7167769e {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.add-panel.data-v-7167769e {
-  width: 84%;
-  background: #ffffff;
-  border-radius: 24rpx;
-  padding: 28rpx 26rpx 24rpx;
-  box-shadow: 0 18rpx 40rpx rgba(0, 0, 0, 0.18);
-}
-.add-title.data-v-7167769e {
-  font-size: 30rpx;
-  font-weight: 700;
-  margin-bottom: 18rpx;
-  color: #1f2430;
-}
-.add-field.data-v-7167769e {
-  margin-bottom: 18rpx;
-}
-.add-label.data-v-7167769e {
-  font-size: 24rpx;
-  color: #60697b;
-  margin-bottom: 8rpx;
-  display: block;
-}
-.add-input.data-v-7167769e {
-  width: 100%;
-  border: 1rpx solid #e5e7ef;
-  border-radius: 12rpx;
-  padding: 14rpx 16rpx;
-  height: 72rpx;
-  line-height: 44rpx;
-  font-size: 26rpx;
-  box-sizing: border-box;
-}
-.priority-row.data-v-7167769e {
-  display: flex;
-  gap: 12rpx;
-}
-.pri-btn.data-v-7167769e {
-  flex: 1;
-  border: 1rpx solid #e5e7ef;
-  border-radius: 12rpx;
-  padding: 14rpx 0;
-  text-align: center;
-  font-size: 24rpx;
-  color: #4c5260;
-}
-.pri-btn.active.data-v-7167769e {
-  background: #eef2ff;
-  color: #3d4ed1;
-  border-color: #d9defc;
-}
-.add-actions.data-v-7167769e {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12rpx;
-  margin-top: 10rpx;
-}
-.add-btn.data-v-7167769e {
-  padding: 12rpx 22rpx;
-  border-radius: 12rpx;
-  font-size: 24rpx;
-  border: 1rpx solid #e5e7ef;
-}
-.add-btn.primary.data-v-7167769e {
-  background: #f4f6ff;
-  color: #3d4ed1;
-  border-color: #d9defc;
 }

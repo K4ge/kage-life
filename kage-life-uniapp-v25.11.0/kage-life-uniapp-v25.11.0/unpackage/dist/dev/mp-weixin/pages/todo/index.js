@@ -1,6 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
-const BASE_URL = "https://k4ge.bar/api";
+const BASE_URL = "http://127.0.0.1:8000/api";
 const _sfc_main = {
   __name: "index",
   setup(__props) {
@@ -29,10 +29,6 @@ const _sfc_main = {
       const day = String(d.getDate()).padStart(2, "0");
       return `${y}-${m}-${day}`;
     };
-    const showAdd = common_vendor.ref(false);
-    const newTitle = common_vendor.ref("");
-    const newDate = common_vendor.ref(todayStr());
-    const newPriority = common_vendor.ref(2);
     const statText = common_vendor.computed(() => {
       if (activeTab.value === "done") {
         return `今日已完成 ${stats.value.done} 项`;
@@ -144,44 +140,6 @@ const _sfc_main = {
         url: "/pages/index/index"
       });
     };
-    const openAdd = () => {
-      newTitle.value = "";
-      newDate.value = todayStr();
-      newPriority.value = 2;
-      showAdd.value = true;
-    };
-    const closeAdd = () => {
-      showAdd.value = false;
-    };
-    const pickPriority = (val) => {
-      newPriority.value = val;
-    };
-    const createTodo = () => {
-      const title = newTitle.value.trim();
-      if (!title) {
-        common_vendor.index.showToast({ title: "请输入标题", icon: "none" });
-        return;
-      }
-      common_vendor.index.request({
-        url: `${BASE_URL}/todos/create/`,
-        method: "POST",
-        data: {
-          title,
-          deadline_date: newDate.value,
-          priority: newPriority.value
-        },
-        success: (res) => {
-          if (res.statusCode === 201) {
-            closeAdd();
-            fetchTodos(activeTab.value);
-            common_vendor.index.showToast({ title: "已添加", icon: "success" });
-          } else {
-            common_vendor.index.showToast({ title: "添加失败", icon: "none" });
-          }
-        },
-        fail: () => common_vendor.index.showToast({ title: "网络异常", icon: "none" })
-      });
-    };
     return (_ctx, _cache) => {
       return common_vendor.e({
         a: common_vendor.f(tabs, (tab, k0, i0) => {
@@ -223,29 +181,8 @@ const _sfc_main = {
         })
       }, {
         d: !items.value.length,
-        f: common_vendor.o(goTimeline),
-        g: common_vendor.o(openAdd),
-        h: showAdd.value
-      }, showAdd.value ? {
-        i: newTitle.value,
-        j: common_vendor.o(($event) => newTitle.value = $event.detail.value),
-        k: common_vendor.t(newDate.value),
-        l: newDate.value,
-        m: common_vendor.o((e) => {
-          newDate.value = e.detail.value;
-        }),
-        n: newPriority.value === 3 ? 1 : "",
-        o: common_vendor.o(($event) => pickPriority(3)),
-        p: newPriority.value === 2 ? 1 : "",
-        q: common_vendor.o(($event) => pickPriority(2)),
-        r: newPriority.value === 1 ? 1 : "",
-        s: common_vendor.o(($event) => pickPriority(1)),
-        t: common_vendor.o(closeAdd),
-        v: common_vendor.o(createTodo),
-        w: common_vendor.o(() => {
-        }),
-        x: common_vendor.o(closeAdd)
-      } : {});
+        f: common_vendor.o(goTimeline)
+      });
     };
   }
 };
