@@ -1,0 +1,31 @@
+name: Auto merge feature into release
+
+on:
+  push:
+    branches:
+      - 'feature_*'         # 触发：push 到 feature_202512 / feature_xxx
+
+permissions:
+  contents: write          # 关键：允许写 repo 内容（解决 403）
+
+jobs:
+  merge_to_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Merge this feature branch into release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const featureBranch = context.ref.replace('refs/heads/', '');
+            const baseBranch = 'release';
+
+            console.log(`Merging ${featureBranch} -> ${baseBranch}`);
+
+            await github.rest.repos.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: baseBranch,
+              head: featureBranch,
+            });
