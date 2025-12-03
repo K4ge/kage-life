@@ -3,7 +3,7 @@ name: Auto merge feature into release
 on:
   push:
     branches:
-      - 'feature_*'         # 你现在用的是 feature_202512，匹配这个模式
+      - '**'      # 任何分支 push 都触发（先用来测试）
 
 jobs:
   merge:
