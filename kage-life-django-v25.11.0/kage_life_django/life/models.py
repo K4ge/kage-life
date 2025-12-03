@@ -48,3 +48,26 @@ class EventType(models.Model):
 
     def __str__(self):
         return self.display_name
+
+
+class Todo(models.Model):
+    """
+    映射 kage_todos 待办表
+    """
+    id = models.BigAutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    priority = models.SmallIntegerField(default=2)  # 1=不急 2=普通 3=重要
+    deadline_date = models.DateField(null=True, blank=True)
+    deadline_time = models.TimeField(null=True, blank=True)
+    is_done = models.SmallIntegerField(default=0)  # 0 未完成 1 已完成
+    done_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "kage_todos"
+        managed = False  # 已有表，保持手工管理
+
+    def __str__(self):
+        return f"{self.title} ({'done' if self.is_done else 'todo'})"

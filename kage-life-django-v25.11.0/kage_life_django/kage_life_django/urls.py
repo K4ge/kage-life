@@ -20,8 +20,12 @@ from life import views as life_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-# 查询所有事件
+    # 查询所有事件
     path('api/events/', life_views.event_list),
     path('api/event_types/', life_views.event_type),
     path('api/events/create/', life_views.event_create),
+    # 待办
+    path('api/todos/', life_views.todo_list),
+    path('api/todos/<int:todo_id>/status/', life_views.todo_status),
+    path('api/todos/<int:todo_id>/delete/', life_views.todo_delete),
 ]
