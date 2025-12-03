@@ -1,0 +1,54 @@
+name: Auto merge feature into release and main
+
+on:
+  push:
+    branches:
+      - 'feature_*'      # 例如 feature_202512
+
+permissions:
+  contents: write        # 关键：允许写入仓库内容（合并）
+
+jobs:
+  merge_chain:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Merge feature -> release -> main
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const featureBranch = context.ref.replace('refs/heads/', '');
+            const releaseBranch = 'release';
+            const mainBranch = 'main';
+
+            async function merge(base, head) {
+              console.log(`Merging ${head} -> ${base}`);
+              try {
+                const res = await github.rest.repos.merge({
+                  owner,
+                  repo,
+                  base,
+                  head,
+                });
+                console.log(`Merge success: ${head} -> ${base}, commit ${res.data.sha}`);
+              } catch (error) {
+                if (error.status === 409) {
+                  console.log(`⚠️ Conflict when merging ${head} into ${base}，需要手动解决冲突`);
+                } else if (error.status === 204) {
+                  console.log(`ℹ️ ${head} 已经在 ${base} 里了，无需合并`);
+                } else {
+                  console.log(`❌ Merge ${head} -> ${base} failed:`, error);
+                  throw error;
+                }
+              }
+            }
+
+            // 1️⃣ feature -> release
+            await merge(releaseBranch, featureBranch);
+
+            // 2️⃣ release -> main
+            await merge(mainBranch, releaseBranch);
