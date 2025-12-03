@@ -3,10 +3,13 @@ name: Auto merge feature into release
 on:
   push:
     branches:
-      - '**'      # 任何分支 push 都触发（先用来测试）
+      - 'feature_*'         # 触发：push 到 feature_202512 / feature_xxx
+
+permissions:
+  contents: write          # 关键：允许写 repo 内容（解决 403）
 
 jobs:
-  merge:
+  merge_to_release:
     runs-on: ubuntu-latest
 
     steps:
