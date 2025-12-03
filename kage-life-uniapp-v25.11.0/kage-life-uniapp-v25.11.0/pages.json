@@ -1,0 +1,19 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "Timeline+",
+        "navigationBarBackgroundColor": "#ffffff",   // 顶栏纯白
+        "backgroundColor": "#f5f5f5"                 // 页面浅灰
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Timeline+",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f5f5"
+  },
+  "uniIdRouter": {}
+}
