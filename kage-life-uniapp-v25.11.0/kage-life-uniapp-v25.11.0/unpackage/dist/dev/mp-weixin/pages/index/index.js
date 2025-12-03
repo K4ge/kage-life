@@ -37,12 +37,12 @@ const _sfc_main = {
             }));
           } else {
             errorMsg.value = "接口返回异常";
-            common_vendor.index.__f__("log", "at pages/index/index.vue:130", "接口异常", res);
+            common_vendor.index.__f__("log", "at pages/index/index.vue:128", "接口异常", res);
           }
         },
         fail: (err) => {
           errorMsg.value = "网络请求失败";
-          common_vendor.index.__f__("error", "at pages/index/index.vue:135", "请求失败", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:133", "请求失败", err);
         },
         complete: () => {
           loading.value = false;
@@ -61,7 +61,7 @@ const _sfc_main = {
           presetOptions.value = res.data.event_types.map((item) => item.description || item.type_name);
         },
         fail: (err) => {
-          common_vendor.index.__f__("error", "at pages/index/index.vue:155", "加载事件类型失败", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:153", "加载事件类型失败", err);
           common_vendor.index.showToast({ title: "加载事件类型失败", icon: "none" });
         }
       });
@@ -180,7 +180,7 @@ const _sfc_main = {
       fetchEvents(value);
     };
     const goTodo = () => {
-      common_vendor.index.navigateTo({
+      common_vendor.index.redirectTo({
         url: "/pages/todo/index"
       });
     };

@@ -1,16 +1,16 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
-const BASE_URL = "http://127.0.0.1:8000/api";
+const BASE_URL = "https://k4ge.bar/api";
 const _sfc_main = {
   __name: "index",
   setup(__props) {
     const tabs = [
-      { key: "all", label: "全部" },
       { key: "today", label: "今天到期" },
+      { key: "all", label: "全部" },
       { key: "important", label: "仅重要" },
       { key: "done", label: "已完成" }
     ];
-    const activeTab = common_vendor.ref("all");
+    const activeTab = common_vendor.ref("today");
     const items = common_vendor.ref([]);
     const stats = common_vendor.ref({ total: 0, done: 0, todo: 0 });
     const listLoading = common_vendor.ref(false);
@@ -29,6 +29,10 @@ const _sfc_main = {
       const day = String(d.getDate()).padStart(2, "0");
       return `${y}-${m}-${day}`;
     };
+    const showAdd = common_vendor.ref(false);
+    const newTitle = common_vendor.ref("");
+    const newDate = common_vendor.ref(todayStr());
+    const newPriority = common_vendor.ref(2);
     const statText = common_vendor.computed(() => {
       if (activeTab.value === "done") {
         return `今日已完成 ${stats.value.done} 项`;
@@ -37,7 +41,7 @@ const _sfc_main = {
       return `${prefix} ${stats.value.todo} 项 · 已完成 ${stats.value.done} 项`;
     });
     common_vendor.onLoad(() => {
-      fetchTodos();
+      fetchTodos("today");
     });
     const fetchTodos = (tab = activeTab.value) => {
       activeTab.value = tab;
@@ -48,7 +52,9 @@ const _sfc_main = {
         data: { tab },
         success: (res) => {
           if (res.statusCode === 200 && res.data) {
-            items.value = res.data.items || [];
+            const list = res.data.items || [];
+            list.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+            items.value = list;
             stats.value = res.data.stats || { total: 0, done: 0, todo: 0 };
           } else {
             common_vendor.index.showToast({ title: "加载失败", icon: "none" });
@@ -67,23 +73,8 @@ const _sfc_main = {
         return;
       fetchTodos(tab);
     };
-    const tagLabel = (priority) => {
-      if (priority === 3)
-        return "重要";
-      if (priority === 1)
-        return "不急";
-      return "普通";
-    };
-    const tagClass = (priority) => {
-      if (priority === 3)
-        return "tag-red";
-      if (priority === 1)
-        return "tag-green";
-      return "tag-yellow";
-    };
     const deadlineLabel = (item) => {
       const dateStr = item.deadline_date;
-      const timeStr = item.deadline_time;
       let label = "";
       if (dateStr === todayStr()) {
         label = "今天";
@@ -91,9 +82,6 @@ const _sfc_main = {
         label = "明天";
       } else {
         label = dateStr || "未设置";
-      }
-      if (timeStr) {
-        return `${label} ${timeStr}`;
       }
       return label;
     };
@@ -156,6 +144,44 @@ const _sfc_main = {
         url: "/pages/index/index"
       });
     };
+    const openAdd = () => {
+      newTitle.value = "";
+      newDate.value = todayStr();
+      newPriority.value = 2;
+      showAdd.value = true;
+    };
+    const closeAdd = () => {
+      showAdd.value = false;
+    };
+    const pickPriority = (val) => {
+      newPriority.value = val;
+    };
+    const createTodo = () => {
+      const title = newTitle.value.trim();
+      if (!title) {
+        common_vendor.index.showToast({ title: "请输入标题", icon: "none" });
+        return;
+      }
+      common_vendor.index.request({
+        url: `${BASE_URL}/todos/create/`,
+        method: "POST",
+        data: {
+          title,
+          deadline_date: newDate.value,
+          priority: newPriority.value
+        },
+        success: (res) => {
+          if (res.statusCode === 201) {
+            closeAdd();
+            fetchTodos(activeTab.value);
+            common_vendor.index.showToast({ title: "已添加", icon: "success" });
+          } else {
+            common_vendor.index.showToast({ title: "添加失败", icon: "none" });
+          }
+        },
+        fail: () => common_vendor.index.showToast({ title: "网络异常", icon: "none" })
+      });
+    };
     return (_ctx, _cache) => {
       return common_vendor.e({
         a: common_vendor.f(tabs, (tab, k0, i0) => {
@@ -173,31 +199,53 @@ const _sfc_main = {
           return common_vendor.e({
             a: common_vendor.t(item.title),
             b: item.is_done ? 1 : "",
-            c: common_vendor.t(item.is_done ? "已完成" : tagLabel(item.priority)),
-            d: common_vendor.n(item.is_done ? "tag-done" : tagClass(item.priority)),
-            e: common_vendor.t(deadlineLabel(item)),
-            f: item.note
-          }, item.note ? {
-            g: common_vendor.t(item.note)
+            c: deadlineLabel(item)
+          }, deadlineLabel(item) ? {
+            d: common_vendor.t(deadlineLabel(item))
           } : {}, {
-            h: !item.is_done
+            e: item.note
+          }, item.note ? {
+            f: common_vendor.t(item.note)
+          } : {}, {
+            g: !item.is_done
           }, !item.is_done ? {
-            i: common_vendor.o(($event) => markDone(item), item.id)
+            h: common_vendor.o(($event) => markDone(item), item.id)
           } : {
-            j: common_vendor.o(($event) => undoDone(item), item.id)
+            i: common_vendor.o(($event) => undoDone(item), item.id)
           }, {
-            k: common_vendor.o(($event) => removeTodo(item), item.id),
-            l: item.id,
-            m: common_vendor.n("priority-" + item.priority),
-            n: common_vendor.n({
+            j: common_vendor.o(($event) => removeTodo(item), item.id),
+            k: item.id,
+            l: common_vendor.n("priority-" + item.priority),
+            m: common_vendor.n({
               "is-done": item.is_done
             })
           });
         })
       }, {
         d: !items.value.length,
-        f: common_vendor.o(goTimeline)
-      });
+        f: common_vendor.o(goTimeline),
+        g: common_vendor.o(openAdd),
+        h: showAdd.value
+      }, showAdd.value ? {
+        i: newTitle.value,
+        j: common_vendor.o(($event) => newTitle.value = $event.detail.value),
+        k: common_vendor.t(newDate.value),
+        l: newDate.value,
+        m: common_vendor.o((e) => {
+          newDate.value = e.detail.value;
+        }),
+        n: newPriority.value === 3 ? 1 : "",
+        o: common_vendor.o(($event) => pickPriority(3)),
+        p: newPriority.value === 2 ? 1 : "",
+        q: common_vendor.o(($event) => pickPriority(2)),
+        r: newPriority.value === 1 ? 1 : "",
+        s: common_vendor.o(($event) => pickPriority(1)),
+        t: common_vendor.o(closeAdd),
+        v: common_vendor.o(createTodo),
+        w: common_vendor.o(() => {
+        }),
+        x: common_vendor.o(closeAdd)
+      } : {});
     };
   }
 };
