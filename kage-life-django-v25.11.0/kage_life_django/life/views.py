@@ -2,15 +2,16 @@ from django.shortcuts import render
 
 # Create your views here.
 # life/views.py
+import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
-from datetime import datetime
-
-from .models import Event
-from .models import EventType
+from .models import Event, EventType, Todo
 
 
 @require_GET
@@ -92,9 +93,7 @@ def event_create(request):
         except ValueError:
             return JsonResponse({'error': 'start_time format must be HH:MM'}, status=400)
 
-    china_tz = pytz.timezone('Asia/Shanghai')
-    utc_now = timezone.now()
-    local_now = utc_now.astimezone(china_tz)
+    local_now = timezone.now().astimezone(ZoneInfo('Asia/Shanghai'))
     event = Event.objects.create(
         date=local_now.date(),
         event_type='general',
@@ -103,6 +102,120 @@ def event_create(request):
         created_at=local_now,
         updated_at=local_now,
     )
+
+
+def _serialize_todo(todo):
+    done_at_str = None
+    if todo.done_at:
+        try:
+            done_at_str = timezone.localtime(todo.done_at).strftime('%Y-%m-%d %H:%M')
+        except Exception:
+            done_at_str = todo.done_at.strftime('%Y-%m-%d %H:%M')
+
+    return {
+        'id': todo.id,
+        'title': todo.title,
+        'priority': todo.priority,
+        'deadline_date': todo.deadline_date.isoformat() if todo.deadline_date else None,
+        'deadline_time': todo.deadline_time.strftime('%H:%M') if todo.deadline_time else None,
+        'is_done': int(todo.is_done),
+        'done_at': done_at_str,
+        'note': todo.note or '',
+    }
+
+
+@require_GET
+def todo_list(request):
+    """
+    GET /api/todos?tab=all|today|important|done
+    - all: 所有
+    - today: 截止日期为今天
+    - important: 仅 priority=3
+    - done: 已完成且截止日期为今天
+    """
+    tab = request.GET.get('tab', 'all')
+    today = timezone.localdate()
+
+    qs = Todo.objects.all()
+    if tab == 'today':
+        qs = qs.filter(deadline_date=today)
+    elif tab == 'important':
+        qs = qs.filter(priority=3)
+    elif tab == 'done':
+        qs = qs.filter(is_done=1, deadline_date=today)
+    else:
+        tab = 'all'
+
+    # 未完成优先，其次截止日期/时间，重要性高在前
+    qs = qs.order_by('is_done', 'deadline_date', 'deadline_time', '-priority', 'id')
+    data = [_serialize_todo(todo) for todo in qs]
+
+    stats_total = qs.count()
+    stats_done = qs.filter(is_done=1).count()
+
+    return JsonResponse(
+        {
+            'tab': tab,
+            'items': data,
+            'stats': {
+                'total': stats_total,
+                'done': stats_done,
+                'todo': stats_total - stats_done,
+            },
+        },
+        json_dumps_params={'ensure_ascii': False},
+    )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def todo_status(request, todo_id: int):
+    """
+    POST /api/todos/<id>/status
+    body/form: {is_done: 1|0}
+    """
+    try:
+        todo = Todo.objects.get(pk=todo_id)
+    except Todo.DoesNotExist:
+        return JsonResponse({'error': 'not found'}, status=404)
+
+    # 兼容 form 和 json
+    payload = {}
+    if request.body:
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            payload = {}
+    is_done_raw = request.POST.get('is_done', payload.get('is_done'))
+    if is_done_raw is None:
+        return JsonResponse({'error': 'is_done is required'}, status=400)
+
+    is_done_flag = 1 if str(is_done_raw) in ['1', 'true', 'True', 'yes', 'on'] else 0
+    now_local = timezone.localtime(timezone.now())
+    todo.is_done = is_done_flag
+    todo.done_at = now_local if is_done_flag else None
+    todo.updated_at = now_local
+    todo.save(update_fields=['is_done', 'done_at', 'updated_at'])
+
+    return JsonResponse(
+        {'item': _serialize_todo(todo)},
+        json_dumps_params={'ensure_ascii': False},
+    )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def todo_delete(request, todo_id: int):
+    """
+    POST /api/todos/<id>/delete
+    """
+    try:
+        todo = Todo.objects.get(pk=todo_id)
+    except Todo.DoesNotExist:
+        return JsonResponse({'error': 'not found'}, status=404)
+
+    todo.delete()
+    return JsonResponse({'status': 'ok'})
 
     return JsonResponse(
         {'id': event.id, 'title': event.title, 'start_time': event.start_time.strftime('%H:%M') if event.start_time else None},
