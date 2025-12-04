@@ -152,7 +152,7 @@ onLoad(() => {
   loadEventsFromCache(currentDate.value)
   fetchEvents(currentDate.value)
   loadEventTypes()
-  prefetchTodosAll()
+  prefetchTodosAll({ force: true }) // 进入首页顺手预取 todo 缓存，确保切页秒开
 })
 
 const cacheKeyForDate = (date) => `${EVENT_CACHE_PREFIX}_${date}`
