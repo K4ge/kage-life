@@ -24,6 +24,8 @@ urlpatterns = [
     path('api/events/', life_views.event_list),
     path('api/event_types/', life_views.event_type),
     path('api/events/create/', life_views.event_create),
+    path('api/events/<int:event_id>/update/', life_views.event_update),
+    path('api/events/<int:event_id>/delete/', life_views.event_delete),
     # 待办
     path('api/todos/', life_views.todo_list),
     path('api/todos/create/', life_views.todo_create),

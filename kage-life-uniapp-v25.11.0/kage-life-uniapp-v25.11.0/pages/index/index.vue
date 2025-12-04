@@ -14,7 +14,7 @@
       <view class="timeline" v-if="section.items.length">
         <view class="timeline-line"></view>
         <view class="timeline-list">
-          <view class="timeline-item" v-for="item in section.items" :key="item.id">
+          <view class="timeline-item" v-for="item in section.items" :key="item.id" @tap="openEdit(item)">
             <view class="dot"></view>
             <view class="item-content">
               <text class="item-time">{{ item.time }}</text>
@@ -59,11 +59,44 @@
           </view>
         </scroll-view>
 
-        <view class="add-actions">
-          <button size="mini" @tap="onCancelAdd">关闭</button>
-        </view>
-      </view>
+    <view class="add-actions">
+      <button size="mini" @tap="onCancelAdd">关闭</button>
     </view>
+  </view>
+</view>
+
+<!-- 编辑弹窗 -->
+<view v-if="showEdit" class="edit-mask" @tap="closeEdit">
+  <view class="edit-panel" @tap.stop>
+    <view class="edit-title">编辑事件</view>
+
+    <view class="edit-field">
+      <text class="edit-label">标题</text>
+      <input class="edit-input" v-model="editTitle" placeholder="请输入标题" />
+    </view>
+
+    <view class="edit-field">
+      <text class="edit-label">开始时间</text>
+      <input class="edit-input" v-model="editStartTime" placeholder="HH:MM，可留空" />
+    </view>
+
+    <view class="edit-field">
+      <text class="edit-label">事件类型</text>
+      <input class="edit-input" v-model="editType" placeholder="如 reading / dev / run" />
+    </view>
+
+    <view class="edit-field">
+      <text class="edit-label">数量</text>
+      <input class="edit-input" v-model="editValueNumber" placeholder="数字，可留空" />
+    </view>
+
+    <view class="edit-actions">
+      <button class="edit-btn" @tap="closeEdit">取消</button>
+      <button class="edit-btn danger" @tap="deleteEvent">删除</button>
+      <button class="edit-btn primary" @tap="saveEdit">保存</button>
+    </view>
+  </view>
+</view>
 
     <!-- 右下角添加按钮 -->
     <view class="fab" @tap="onAdd">
@@ -87,6 +120,12 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
 const events = ref([])
+const showEdit = ref(false)
+const editId = ref(null)
+const editTitle = ref('')
+const editStartTime = ref('')
+const editType = ref('')
+const editValueNumber = ref('')
 
 const loading = ref(false)
 const errorMsg = ref('')
@@ -292,6 +331,68 @@ const goTodo = () => {
     url: '/pages/todo/index'
   })
 }
+
+const openEdit = (item) => {
+  editId.value = item.id
+  editTitle.value = item.title || ''
+  editStartTime.value = item.time || ''
+  editType.value = item.raw?.event_type || ''
+  editValueNumber.value = item.raw?.value_number ?? ''
+  showEdit.value = true
+}
+
+const closeEdit = () => {
+  showEdit.value = false
+}
+
+const saveEdit = () => {
+  if (!editId.value) return
+  uni.request({
+    url: `https://k4ge.bar/api/events/${editId.value}/update/`,
+    method: 'POST',
+    data: {
+      title: editTitle.value,
+      start_time: editStartTime.value,
+      event_type: editType.value,
+      value_number: editValueNumber.value
+    },
+    success: (res) => {
+      if (res.statusCode === 200) {
+        closeEdit()
+        fetchEvents()
+        uni.showToast({ title: '已保存', icon: 'success' })
+      } else {
+        uni.showToast({ title: '保存失败', icon: 'none' })
+      }
+    },
+    fail: () => uni.showToast({ title: '网络异常', icon: 'none' })
+  })
+}
+
+const deleteEvent = () => {
+  if (!editId.value) return
+  uni.showModal({
+    title: '确认删除？',
+    content: editTitle.value || '',
+    success: (res) => {
+      if (!res.confirm) return
+      uni.request({
+        url: `https://k4ge.bar/api/events/${editId.value}/delete/`,
+        method: 'POST',
+        success: (resp) => {
+          if (resp.statusCode === 200) {
+            closeEdit()
+            fetchEvents()
+            uni.showToast({ title: '已删除', icon: 'success' })
+          } else {
+            uni.showToast({ title: '删除失败', icon: 'none' })
+          }
+        },
+        fail: () => uni.showToast({ title: '网络异常', icon: 'none' })
+      })
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -472,6 +573,82 @@ const goTodo = () => {
   margin-top: 24rpx;
   display: flex;
   justify-content: flex-end;
+}
+
+.edit-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.edit-panel {
+  width: 86%;
+  max-width: 640rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx 22rpx;
+  box-shadow: 0 16rpx 36rpx rgba(0, 0, 0, 0.18);
+}
+
+.edit-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 18rpx;
+}
+
+.edit-field {
+  margin-bottom: 14rpx;
+}
+
+.edit-label {
+  display: block;
+  font-size: 24rpx;
+  color: #5f6675;
+  margin-bottom: 8rpx;
+}
+
+.edit-input {
+  width: 100%;
+  border: 1rpx solid #e5e7ef;
+  border-radius: 12rpx;
+  padding: 14rpx 16rpx;
+  height: 72rpx;
+  line-height: 44rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  margin-top: 6rpx;
+}
+
+.edit-btn {
+  padding: 12rpx 22rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  border: 1rpx solid #e5e7ef;
+}
+
+.edit-btn.primary {
+  background: #f4f6ff;
+  color: #3d4ed1;
+  border-color: #d9defc;
+}
+
+.edit-btn.danger {
+  background: #ffffff;
+  color: #d65a5a;
+  border-color: #f7dada;
 }
 
 .bottom-nav {

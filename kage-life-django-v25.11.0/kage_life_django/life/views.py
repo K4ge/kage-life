@@ -113,6 +113,81 @@ def event_create(request):
         json_dumps_params={'ensure_ascii': False},
     )
 
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def event_update(request, event_id: int):
+    """
+    POST /api/events/<id>/update/
+    body/form: title, start_time(HH:MM), event_type, value_number
+    """
+    try:
+        event = Event.objects.get(pk=event_id)
+    except Event.DoesNotExist:
+        return JsonResponse({'error': 'not found'}, status=404)
+
+    payload = {}
+    if request.body:
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            payload = {}
+
+    def _get(key):
+        return request.POST.get(key) if key in request.POST else payload.get(key)
+
+    title = _get('title')
+    start_time_str = _get('start_time')
+    event_type = _get('event_type')
+    value_number = _get('value_number')
+
+    if title is not None:
+        event.title = title
+
+    if event_type is not None:
+        event.event_type = event_type
+
+    if start_time_str is not None:
+        if start_time_str == "":
+            event.start_time = None
+        else:
+            try:
+                event.start_time = datetime.strptime(start_time_str, "%H:%M").time()
+            except ValueError:
+                return JsonResponse({'error': 'start_time format must be HH:MM'}, status=400)
+
+    if value_number is not None:
+        try:
+            event.value_number = float(value_number)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'value_number must be a number'}, status=400)
+
+    event.updated_at = timezone.now().astimezone(ZoneInfo('Asia/Shanghai'))
+    event.save()
+
+    return JsonResponse({
+        'id': event.id,
+        'title': event.title,
+        'start_time': event.start_time.strftime('%H:%M') if event.start_time else None,
+        'event_type': event.event_type,
+        'value_number': float(event.value_number) if event.value_number is not None else None,
+    }, json_dumps_params={'ensure_ascii': False})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def event_delete(request, event_id: int):
+    """
+    POST /api/events/<id>/delete/
+    """
+    try:
+        event = Event.objects.get(pk=event_id)
+    except Event.DoesNotExist:
+        return JsonResponse({'error': 'not found'}, status=404)
+
+    event.delete()
+    return JsonResponse({'status': 'ok'})
+
 def _serialize_todo(todo):
     done_at_str = None
     if todo.done_at:
