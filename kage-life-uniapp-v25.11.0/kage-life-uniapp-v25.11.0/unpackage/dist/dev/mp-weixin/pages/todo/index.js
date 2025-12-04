@@ -4,9 +4,11 @@ const BASE_URL = "https://k4ge.bar/api";
 const TODO_CACHE_KEY = "cached_todos";
 const CACHE_TTL_MS = 2 * 60 * 1e3;
 const EVENT_CACHE_PREFIX = "cached_events";
+const EVENT_CACHE_TTL_MS = 2 * 60 * 1e3;
 const _sfc_main = {
   __name: "index",
   setup(__props) {
+    const hasLoadedOnce = common_vendor.ref(false);
     const todayStr = () => {
       const d = /* @__PURE__ */ new Date();
       const y = d.getFullYear();
@@ -127,7 +129,10 @@ const _sfc_main = {
       });
       setTodos(updated);
     };
-    const fetchTodosAll = () => {
+    const fetchTodosAll = ({ force = false } = {}) => {
+      if (hasLoadedOnce.value && !force)
+        return;
+      hasLoadedOnce.value = true;
       listLoading.value = true;
       common_vendor.index.request({
         url: `${BASE_URL}/todos/`,
@@ -153,12 +158,17 @@ const _sfc_main = {
           setTodos(cached.items);
           listLoading.value = false;
           if (cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+            hasLoadedOnce.value = true;
             return;
           }
         }
       } catch (e) {
       }
       fetchTodosAll();
+      prefetchEventsForToday();
+    });
+    common_vendor.onShow(() => {
+      prefetchEventsForToday(true);
     });
     const switchTab = (tab) => {
       activeTab.value = tab;
@@ -193,7 +203,7 @@ const _sfc_main = {
       return label;
     };
     const markDone = (item) => {
-      const eventDate = item.deadline_date || todayStr();
+      const eventDate = todayStr();
       applyLocalStatus(item.id, 1);
       common_vendor.index.request({
         url: `${BASE_URL}/todos/${item.id}/status/`,
@@ -214,7 +224,7 @@ const _sfc_main = {
       });
     };
     const undoDone = (item) => {
-      const eventDate = item.deadline_date || todayStr();
+      const eventDate = todayStr();
       applyLocalStatus(item.id, 0);
       common_vendor.index.request({
         url: `${BASE_URL}/todos/${item.id}/status/`,
@@ -248,7 +258,7 @@ const _sfc_main = {
               if (resp.statusCode === 200) {
                 const list = allTodos.value.filter((t) => t.id !== item.id);
                 setTodos(list);
-                refreshEventCache(item.deadline_date || todayStr());
+                refreshEventCache(todayStr());
               } else {
                 common_vendor.index.showToast({ title: "删除失败", icon: "none" });
               }
@@ -271,6 +281,31 @@ const _sfc_main = {
     const eventCacheKey = (date) => `${EVENT_CACHE_PREFIX}_${date || todayStr()}`;
     const refreshEventCache = (dateParam) => {
       const date = dateParam || todayStr();
+      common_vendor.index.request({
+        url: `${BASE_URL}/events/`,
+        method: "GET",
+        data: { date },
+        success: (res) => {
+          if (res.statusCode === 200 && res.data && Array.isArray(res.data.events)) {
+            const list = res.data.events.map((e) => ({
+              id: e.id,
+              time: e.start_time || "",
+              title: e.title || "",
+              raw: e
+            }));
+            common_vendor.index.setStorageSync(eventCacheKey(date), { ts: Date.now(), items: list });
+          }
+        }
+      });
+    };
+    const prefetchEventsForToday = (force = false) => {
+      const date = todayStr();
+      try {
+        const cache = common_vendor.index.getStorageSync(eventCacheKey(date));
+        if (!force && cache && cache.ts && Date.now() - cache.ts < EVENT_CACHE_TTL_MS)
+          return;
+      } catch (e) {
+      }
       common_vendor.index.request({
         url: `${BASE_URL}/events/`,
         method: "GET",
