@@ -121,7 +121,26 @@
   border: 2rpx solid #f7dada;
 }
 .todo-card.is-done.data-v-7167769e {
-  background: #f6f7fb;
+  background: #f2f4f8;
+}
+.todo-card.not-done.data-v-7167769e {
+  background: #ffffff;
+}
+.todo-card.is-done .card-title.data-v-7167769e {
+  color: #93a0b4;
+  text-decoration: line-through;
+}
+.todo-card.not-done .card-title.data-v-7167769e {
+  color: #1f2430;
+  text-decoration: none;
+}
+.todo-card.is-done .card-actions .btn.primary.data-v-7167769e {
+  background: #e6e9f2;
+  color: #6f7a91;
+}
+.todo-card.not-done .card-actions .btn.primary.data-v-7167769e {
+  background: #eef2ff;
+  color: #3a4cce;
 }
 .empty.data-v-7167769e {
   text-align: center;
