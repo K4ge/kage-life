@@ -1,9 +1,16 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const BASE_URL = "https://k4ge.bar/api";
+const EVENT_CACHE_PREFIX = "cached_events";
+const TODO_CACHE_KEY = "cached_todos";
+const CACHE_TTL_MS = 2 * 60 * 1e3;
+const EVENT_TYPES_CACHE_KEY = "cached_event_types";
+const EVENT_TYPES_TTL_MS = 24 * 60 * 60 * 1e3;
 const _sfc_main = {
   __name: "index",
   setup(__props) {
     const events = common_vendor.ref([]);
+    const lastEventsTs = common_vendor.ref(0);
     const showEdit = common_vendor.ref(false);
     const editId = common_vendor.ref(null);
     const editTitle = common_vendor.ref("");
@@ -22,33 +29,63 @@ const _sfc_main = {
     const today = `${y}-${m}-${d}`;
     const currentDate = common_vendor.ref(today);
     common_vendor.onLoad(() => {
-      fetchEvents();
+      loadEventsFromCache(currentDate.value);
+      fetchEvents(currentDate.value);
       loadEventTypes();
+      prefetchTodosAll();
     });
-    const fetchEvents = (dateParam = currentDate.value) => {
+    const cacheKeyForDate = (date) => `${EVENT_CACHE_PREFIX}_${date}`;
+    const loadEventsFromCache = (dateParam) => {
+      try {
+        const cache = common_vendor.index.getStorageSync(cacheKeyForDate(dateParam));
+        if (cache && Array.isArray(cache.items)) {
+          events.value = cache.items;
+          lastEventsTs.value = cache.ts || 0;
+          loading.value = false;
+          return true;
+        }
+      } catch (e) {
+      }
+      return false;
+    };
+    const saveEventsCache = (dateParam, items) => {
+      try {
+        common_vendor.index.setStorageSync(cacheKeyForDate(dateParam), { ts: Date.now(), items });
+        lastEventsTs.value = Date.now();
+      } catch (e) {
+      }
+    };
+    const fetchEvents = (dateParam = currentDate.value, { force = false } = {}) => {
       currentDate.value = dateParam;
-      loading.value = true;
       errorMsg.value = "";
+      const freshCache = loadEventsFromCache(dateParam);
+      const cacheAgeOk = freshCache && Date.now() - lastEventsTs.value < CACHE_TTL_MS;
+      if (cacheAgeOk && !force) {
+        return;
+      }
+      loading.value = true;
       common_vendor.index.request({
-        url: "https://k4ge.bar/api/events/",
+        url: `${BASE_URL}/events/`,
         method: "GET",
         data: { date: dateParam },
         success: (res) => {
           if (res.statusCode === 200 && res.data && Array.isArray(res.data.events)) {
-            events.value = res.data.events.map((e) => ({
+            const list = res.data.events.map((e) => ({
               id: e.id,
               time: e.start_time || "",
               title: e.title || "",
               raw: e
             }));
+            events.value = list;
+            saveEventsCache(dateParam, list);
           } else {
             errorMsg.value = "接口返回异常";
-            common_vendor.index.__f__("log", "at pages/index/index.vue:167", "接口异常", res);
+            common_vendor.index.__f__("log", "at pages/index/index.vue:207", "接口异常", res);
           }
         },
         fail: (err) => {
           errorMsg.value = "网络请求失败";
-          common_vendor.index.__f__("error", "at pages/index/index.vue:172", "请求失败", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:212", "请求失败", err);
         },
         complete: () => {
           loading.value = false;
@@ -56,18 +93,31 @@ const _sfc_main = {
       });
     };
     const loadEventTypes = () => {
+      try {
+        const cached = common_vendor.index.getStorageSync(EVENT_TYPES_CACHE_KEY);
+        if (cached && cached.items && Date.now() - (cached.ts || 0) < EVENT_TYPES_TTL_MS) {
+          presetOptions.value = cached.items;
+          return;
+        }
+      } catch (e) {
+      }
       common_vendor.index.request({
-        url: "https://k4ge.bar/api/event_types/",
+        url: `${BASE_URL}/event_types/`,
         method: "GET",
         success: (res) => {
           if (!res.data || !res.data.event_types) {
             common_vendor.index.showToast({ title: "类型列表数据格式不对", icon: "none" });
             return;
           }
-          presetOptions.value = res.data.event_types.map((item) => item.description || item.type_name);
+          const list = res.data.event_types.map((item) => item.description || item.type_name);
+          presetOptions.value = list;
+          try {
+            common_vendor.index.setStorageSync(EVENT_TYPES_CACHE_KEY, { ts: Date.now(), items: list });
+          } catch (e) {
+          }
         },
         fail: (err) => {
-          common_vendor.index.__f__("error", "at pages/index/index.vue:192", "加载事件类型失败", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:244", "加载事件类型失败", err);
           common_vendor.index.showToast({ title: "加载事件类型失败", icon: "none" });
         }
       });
@@ -183,7 +233,7 @@ const _sfc_main = {
       const value = (_a = e == null ? void 0 : e.detail) == null ? void 0 : _a.value;
       if (!value)
         return;
-      fetchEvents(value);
+      fetchEvents(value, { force: true });
     };
     const goTodo = () => {
       common_vendor.index.redirectTo({
@@ -215,7 +265,7 @@ const _sfc_main = {
       if (editValueNumber.value !== void 0)
         payload.value_number = editValueNumber.value;
       common_vendor.index.request({
-        url: `https://k4ge.bar/api/events/${editId.value}/update/`,
+        url: `${BASE_URL}/events/${editId.value}/update/`,
         method: "POST",
         data: payload,
         success: (res) => {
@@ -240,7 +290,7 @@ const _sfc_main = {
           if (!res.confirm)
             return;
           common_vendor.index.request({
-            url: `https://k4ge.bar/api/events/${editId.value}/delete/`,
+            url: `${BASE_URL}/events/${editId.value}/delete/`,
             method: "POST",
             success: (resp) => {
               if (resp.statusCode === 200) {
@@ -253,6 +303,25 @@ const _sfc_main = {
             },
             fail: () => common_vendor.index.showToast({ title: "网络异常", icon: "none" })
           });
+        }
+      });
+    };
+    const prefetchTodosAll = () => {
+      try {
+        const cached = common_vendor.index.getStorageSync(TODO_CACHE_KEY);
+        if (cached && cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+          return;
+        }
+      } catch (e) {
+      }
+      common_vendor.index.request({
+        url: `${BASE_URL}/todos/`,
+        method: "GET",
+        data: { tab: "all" },
+        success: (res) => {
+          if (res.statusCode === 200 && res.data && Array.isArray(res.data.items)) {
+            common_vendor.index.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: res.data.items });
+          }
         }
       });
     };

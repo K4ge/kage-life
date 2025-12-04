@@ -1,6 +1,8 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const BASE_URL = "https://k4ge.bar/api";
+const TODO_CACHE_KEY = "cached_todos";
+const CACHE_TTL_MS = 2 * 60 * 1e3;
 const _sfc_main = {
   __name: "index",
   setup(__props) {
@@ -26,52 +28,105 @@ const _sfc_main = {
       { key: "done", label: "已完成" }
     ];
     const activeTab = common_vendor.ref("today");
-    const items = common_vendor.ref([]);
-    const stats = common_vendor.ref({ total: 0, done: 0, todo: 0 });
-    const listLoading = common_vendor.ref(false);
+    const allTodos = common_vendor.ref([]);
+    const listLoading = common_vendor.ref(true);
     const showAdd = common_vendor.ref(false);
     const newTitle = common_vendor.ref("");
     const newDate = common_vendor.ref(todayStr());
     const newPriority = common_vendor.ref(2);
+    const sortTodos = (list) => {
+      return [...list].sort((a, b) => {
+        const ad = a.deadline_date || "";
+        const bd = b.deadline_date || "";
+        const at = a.deadline_time || "";
+        const bt = b.deadline_time || "";
+        if ((a.is_done || 0) !== (b.is_done || 0))
+          return (a.is_done || 0) - (b.is_done || 0);
+        const cmpDate = ad.localeCompare(bd);
+        if (cmpDate !== 0)
+          return cmpDate;
+        const cmpTime = at.localeCompare(bt);
+        if (cmpTime !== 0)
+          return cmpTime;
+        const cmpPri = (b.priority || 0) - (a.priority || 0);
+        if (cmpPri !== 0)
+          return cmpPri;
+        return (a.id || 0) - (b.id || 0);
+      });
+    };
+    const filterByTab = (tab, list) => {
+      const today = todayStr();
+      if (tab === "today")
+        return list.filter((i) => i.deadline_date === today);
+      if (tab === "important")
+        return list.filter((i) => Number(i.priority) === 3);
+      if (tab === "done")
+        return list.filter((i) => Number(i.is_done) === 1);
+      return list;
+    };
+    const visibleTodos = common_vendor.computed(() => {
+      const filtered = filterByTab(activeTab.value, allTodos.value || []);
+      return sortTodos(filtered);
+    });
+    const statInfo = common_vendor.computed(() => {
+      const list = visibleTodos.value;
+      const done = list.filter((i) => Number(i.is_done) === 1).length;
+      return {
+        total: list.length,
+        done,
+        todo: list.length - done
+      };
+    });
     const statText = common_vendor.computed(() => {
+      const stats = statInfo.value;
       if (activeTab.value === "done") {
-        return `今日已完成 ${stats.value.done} 项`;
+        return `当前已完成 ${stats.done} 项`;
       }
       const prefix = activeTab.value === "today" ? "今日待办" : activeTab.value === "important" ? "重要待办" : "全部待办";
-      return `${prefix} ${stats.value.todo} 项 · 已完成 ${stats.value.done} 项`;
+      return `${prefix} ${stats.todo} 项 · 已完成 ${stats.done} 项`;
     });
-    common_vendor.onLoad(() => {
-      fetchTodos("today");
-    });
-    const fetchTodos = (tab = activeTab.value) => {
-      activeTab.value = tab;
+    const setTodos = (list) => {
+      allTodos.value = sortTodos(list || []);
+      try {
+        common_vendor.index.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: allTodos.value });
+      } catch (e) {
+      }
+    };
+    const fetchTodosAll = () => {
       listLoading.value = true;
       common_vendor.index.request({
         url: `${BASE_URL}/todos/`,
         method: "GET",
-        data: { tab },
+        data: { tab: "all" },
         success: (res) => {
           if (res.statusCode === 200 && res.data) {
-            const list = res.data.items || [];
-            list.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-            items.value = list;
-            stats.value = res.data.stats || { total: 0, done: 0, todo: 0 };
+            setTodos(res.data.items || []);
           } else {
             common_vendor.index.showToast({ title: "加载失败", icon: "none" });
           }
         },
-        fail: () => {
-          common_vendor.index.showToast({ title: "网络异常", icon: "none" });
-        },
+        fail: () => common_vendor.index.showToast({ title: "网络异常", icon: "none" }),
         complete: () => {
           listLoading.value = false;
         }
       });
     };
+    common_vendor.onLoad(() => {
+      try {
+        const cached = common_vendor.index.getStorageSync(TODO_CACHE_KEY);
+        if (cached && Array.isArray(cached.items)) {
+          setTodos(cached.items);
+          listLoading.value = false;
+          if (cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+            return;
+          }
+        }
+      } catch (e) {
+      }
+      fetchTodosAll();
+    });
     const switchTab = (tab) => {
-      if (tab === activeTab.value)
-        return;
-      fetchTodos(tab);
+      activeTab.value = tab;
     };
     const deadlineLabel = (item) => {
       const dateStr = item.deadline_date;
@@ -93,7 +148,9 @@ const _sfc_main = {
         success: (res) => {
           var _a;
           if (res.statusCode === 200 && ((_a = res.data) == null ? void 0 : _a.item)) {
-            fetchTodos(activeTab.value);
+            const updated = res.data.item;
+            const list = allTodos.value.map((i) => i.id === updated.id ? updated : i);
+            setTodos(list);
           } else {
             common_vendor.index.showToast({ title: "操作失败", icon: "none" });
           }
@@ -109,7 +166,9 @@ const _sfc_main = {
         success: (res) => {
           var _a;
           if (res.statusCode === 200 && ((_a = res.data) == null ? void 0 : _a.item)) {
-            fetchTodos(activeTab.value);
+            const updated = res.data.item;
+            const list = allTodos.value.map((i) => i.id === updated.id ? updated : i);
+            setTodos(list);
           } else {
             common_vendor.index.showToast({ title: "操作失败", icon: "none" });
           }
@@ -129,7 +188,8 @@ const _sfc_main = {
             method: "POST",
             success: (resp) => {
               if (resp.statusCode === 200) {
-                fetchTodos(activeTab.value);
+                const list = allTodos.value.filter((t) => t.id !== item.id);
+                setTodos(list);
               } else {
                 common_vendor.index.showToast({ title: "删除失败", icon: "none" });
               }
@@ -171,9 +231,16 @@ const _sfc_main = {
           priority: newPriority.value
         },
         success: (res) => {
+          var _a;
           if (res.statusCode === 201) {
             closeAdd();
-            fetchTodos(activeTab.value);
+            const newItem = (_a = res.data) == null ? void 0 : _a.item;
+            if (newItem) {
+              const list = [...allTodos.value, newItem];
+              setTodos(list);
+            } else {
+              fetchTodosAll();
+            }
             common_vendor.index.showToast({ title: "已添加", icon: "success" });
           } else {
             common_vendor.index.showToast({ title: "添加失败", icon: "none" });
@@ -194,8 +261,8 @@ const _sfc_main = {
         }),
         b: common_vendor.t(statText.value),
         c: listLoading.value
-      }, listLoading.value ? {} : !items.value.length ? {} : {
-        e: common_vendor.f(items.value, (item, k0, i0) => {
+      }, listLoading.value ? {} : !visibleTodos.value.length ? {} : {
+        e: common_vendor.f(visibleTodos.value, (item, k0, i0) => {
           return common_vendor.e({
             a: common_vendor.t(item.title),
             b: item.is_done ? 1 : "",
@@ -222,7 +289,7 @@ const _sfc_main = {
           });
         })
       }, {
-        d: !items.value.length,
+        d: !visibleTodos.value.length,
         f: common_vendor.o(goTimeline),
         g: common_vendor.o(openAdd),
         h: showAdd.value
