@@ -94,7 +94,7 @@ DATABASES = {
         'NAME': 'kage_life',      # 刚才在 MySQL 里建的库名
         'USER': 'root',
         'PASSWORD': load_db_password(),
-        'HOST': '127.0.0.1',      # 本地
+        'HOST': '149.248.4.231',      # 本地
         'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',

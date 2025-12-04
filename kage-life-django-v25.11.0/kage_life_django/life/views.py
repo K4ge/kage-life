@@ -148,19 +148,23 @@ def event_update(request, event_id: int):
         event.event_type = event_type
 
     if start_time_str is not None:
-        if start_time_str == "":
+        if str(start_time_str).strip() == "":
             event.start_time = None
         else:
             try:
-                event.start_time = datetime.strptime(start_time_str, "%H:%M").time()
+                event.start_time = datetime.strptime(str(start_time_str).strip(), "%H:%M").time()
             except ValueError:
                 return JsonResponse({'error': 'start_time format must be HH:MM'}, status=400)
 
     if value_number is not None:
-        try:
-            event.value_number = float(value_number)
-        except (TypeError, ValueError):
-            return JsonResponse({'error': 'value_number must be a number'}, status=400)
+        value_str = str(value_number).strip()
+        if value_str == "":
+            event.value_number = None
+        else:
+            try:
+                event.value_number = float(value_str)
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'value_number must be a number'}, status=400)
 
     event.updated_at = timezone.now().astimezone(ZoneInfo('Asia/Shanghai'))
     event.save()
