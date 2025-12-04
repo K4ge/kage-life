@@ -119,7 +119,15 @@
 import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
+const BASE_URL = "https://k4ge.bar/api"
+const EVENT_CACHE_PREFIX = "cached_events"
+const TODO_CACHE_KEY = "cached_todos"
+const CACHE_TTL_MS = 2 * 60 * 1000
+const EVENT_TYPES_CACHE_KEY = "cached_event_types"
+const EVENT_TYPES_TTL_MS = 24 * 60 * 60 * 1000
+
 const events = ref([])
+const lastEventsTs = ref(0)
 const showEdit = ref(false)
 const editId = ref(null)
 const editTitle = ref('')
@@ -141,27 +149,59 @@ const today = `${y}-${m}-${d}`
 const currentDate = ref(today)
 
 onLoad(() => {
-  fetchEvents()
+  loadEventsFromCache(currentDate.value)
+  fetchEvents(currentDate.value)
   loadEventTypes()
+  prefetchTodosAll()
 })
 
-const fetchEvents = (dateParam = currentDate.value) => {
+const cacheKeyForDate = (date) => `${EVENT_CACHE_PREFIX}_${date}`
+
+const loadEventsFromCache = (dateParam) => {
+  try {
+    const cache = uni.getStorageSync(cacheKeyForDate(dateParam))
+    if (cache && Array.isArray(cache.items)) {
+      events.value = cache.items
+      lastEventsTs.value = cache.ts || 0
+      loading.value = false
+      return true
+    }
+  } catch (e) {}
+  return false
+}
+
+const saveEventsCache = (dateParam, items) => {
+  try {
+    uni.setStorageSync(cacheKeyForDate(dateParam), { ts: Date.now(), items })
+    lastEventsTs.value = Date.now()
+  } catch (e) {}
+}
+
+const fetchEvents = (dateParam = currentDate.value, { force = false } = {}) => {
   currentDate.value = dateParam
-  loading.value = true
   errorMsg.value = ''
 
+  const freshCache = loadEventsFromCache(dateParam)
+  const cacheAgeOk = freshCache && Date.now() - lastEventsTs.value < CACHE_TTL_MS
+  if (cacheAgeOk && !force) {
+    return
+  }
+
+  loading.value = true
   uni.request({
-    url: 'https://k4ge.bar/api/events/',
+    url: `${BASE_URL}/events/`,
     method: 'GET',
     data: { date: dateParam },
     success: (res) => {
       if (res.statusCode === 200 && res.data && Array.isArray(res.data.events)) {
-        events.value = res.data.events.map(e => ({
+        const list = res.data.events.map(e => ({
           id: e.id,
           time: e.start_time || '',
           title: e.title || '',
           raw: e,
         }))
+        events.value = list
+        saveEventsCache(dateParam, list)
       } else {
         errorMsg.value = '接口返回异常'
         console.log('接口异常', res)
@@ -178,15 +218,27 @@ const fetchEvents = (dateParam = currentDate.value) => {
 }
 
 const loadEventTypes = () => {
+  try {
+    const cached = uni.getStorageSync(EVENT_TYPES_CACHE_KEY)
+    if (cached && cached.items && Date.now() - (cached.ts || 0) < EVENT_TYPES_TTL_MS) {
+      presetOptions.value = cached.items
+      return
+    }
+  } catch (e) {}
+
   uni.request({
-    url: 'https://k4ge.bar/api/event_types/',
+    url: `${BASE_URL}/event_types/`,
     method: 'GET',
     success: (res) => {
       if (!res.data || !res.data.event_types) {
         uni.showToast({ title: '类型列表数据格式不对', icon: 'none' })
         return
       }
-      presetOptions.value = res.data.event_types.map((item) => item.description || item.type_name)
+      const list = res.data.event_types.map((item) => item.description || item.type_name)
+      presetOptions.value = list
+      try {
+        uni.setStorageSync(EVENT_TYPES_CACHE_KEY, { ts: Date.now(), items: list })
+      } catch (e) {}
     },
     fail: (err) => {
       console.error('加载事件类型失败', err)
@@ -323,7 +375,7 @@ const onCancelAdd = () => {
 const onDateChange = (e) => {
   const value = e?.detail?.value
   if (!value) return
-  fetchEvents(value)
+  fetchEvents(value, { force: true })
 }
 
 const goTodo = () => {
@@ -353,7 +405,7 @@ const saveEdit = () => {
   if (editType.value !== undefined) payload.event_type = editType.value
   if (editValueNumber.value !== undefined) payload.value_number = editValueNumber.value
   uni.request({
-    url: `https://k4ge.bar/api/events/${editId.value}/update/`,
+    url: `${BASE_URL}/events/${editId.value}/update/`,
     method: 'POST',
     data: payload,
     success: (res) => {
@@ -377,7 +429,7 @@ const deleteEvent = () => {
     success: (res) => {
       if (!res.confirm) return
       uni.request({
-        url: `https://k4ge.bar/api/events/${editId.value}/delete/`,
+        url: `${BASE_URL}/events/${editId.value}/delete/`,
         method: 'POST',
         success: (resp) => {
           if (resp.statusCode === 200) {
@@ -391,6 +443,27 @@ const deleteEvent = () => {
         fail: () => uni.showToast({ title: '网络异常', icon: 'none' })
       })
     }
+  })
+}
+
+// 预取待办，给待办页用缓存秒开
+const prefetchTodosAll = () => {
+  try {
+    const cached = uni.getStorageSync(TODO_CACHE_KEY)
+    if (cached && cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return
+    }
+  } catch (e) {}
+
+  uni.request({
+    url: `${BASE_URL}/todos/`,
+    method: 'GET',
+    data: { tab: 'all' },
+    success: (res) => {
+      if (res.statusCode === 200 && res.data && Array.isArray(res.data.items)) {
+        uni.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: res.data.items })
+      }
+    },
   })
 }
 </script>

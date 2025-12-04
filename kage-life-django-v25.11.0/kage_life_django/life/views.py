@@ -189,6 +189,15 @@ def event_delete(request, event_id: int):
     except Event.DoesNotExist:
         return JsonResponse({'error': 'not found'}, status=404)
 
+    # 如果有待办关联到该事件，则同步撤销完成状态
+    now_local = timezone.now().astimezone(ZoneInfo('Asia/Shanghai'))
+    Todo.objects.filter(event_id=event_id).update(
+        is_done=0,
+        done_at=None,
+        event_id=None,
+        updated_at=now_local,
+    )
+
     event.delete()
     return JsonResponse({'status': 'ok'})
 

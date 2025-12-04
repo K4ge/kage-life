@@ -17,11 +17,11 @@
     </view>
 
     <view v-if="listLoading" class="empty">加载中...</view>
-    <view v-else-if="!items.length" class="empty">暂无待办</view>
+    <view v-else-if="!visibleTodos.length" class="empty">暂无待办</view>
 
     <view v-else class="card-list">
       <view
-        v-for="item in items"
+        v-for="item in visibleTodos"
         :key="item.id"
         class="todo-card"
         :class="['priority-' + item.priority, { 'is-done': item.is_done }]"
@@ -130,6 +130,8 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
 const BASE_URL = "https://k4ge.bar/api"
+const TODO_CACHE_KEY = "cached_todos"
+const CACHE_TTL_MS = 2 * 60 * 1000
 
 const todayStr = () => {
   const d = new Date()
@@ -156,17 +158,57 @@ const tabs = [
 ]
 
 const activeTab = ref("today")
-const items = ref([])
-const stats = ref({ total: 0, done: 0, todo: 0 })
-const listLoading = ref(false)
+const allTodos = ref([])
+const listLoading = ref(true)
 const showAdd = ref(false)
 const newTitle = ref("")
 const newDate = ref(todayStr())
 const newPriority = ref(2)
 
+const sortTodos = (list) => {
+  return [...list].sort((a, b) => {
+    const ad = a.deadline_date || ""
+    const bd = b.deadline_date || ""
+    const at = a.deadline_time || ""
+    const bt = b.deadline_time || ""
+    if ((a.is_done || 0) !== (b.is_done || 0)) return (a.is_done || 0) - (b.is_done || 0)
+    const cmpDate = ad.localeCompare(bd)
+    if (cmpDate !== 0) return cmpDate
+    const cmpTime = at.localeCompare(bt)
+    if (cmpTime !== 0) return cmpTime
+    const cmpPri = (b.priority || 0) - (a.priority || 0)
+    if (cmpPri !== 0) return cmpPri
+    return (a.id || 0) - (b.id || 0)
+  })
+}
+
+const filterByTab = (tab, list) => {
+  const today = todayStr()
+  if (tab === "today") return list.filter((i) => i.deadline_date === today)
+  if (tab === "important") return list.filter((i) => Number(i.priority) === 3)
+  if (tab === "done") return list.filter((i) => Number(i.is_done) === 1)
+  return list
+}
+
+const visibleTodos = computed(() => {
+  const filtered = filterByTab(activeTab.value, allTodos.value || [])
+  return sortTodos(filtered)
+})
+
+const statInfo = computed(() => {
+  const list = visibleTodos.value
+  const done = list.filter((i) => Number(i.is_done) === 1).length
+  return {
+    total: list.length,
+    done,
+    todo: list.length - done
+  }
+})
+
 const statText = computed(() => {
+  const stats = statInfo.value
   if (activeTab.value === "done") {
-    return `今日已完成 ${stats.value.done} 项`
+    return `当前已完成 ${stats.done} 项`
   }
   const prefix =
     activeTab.value === "today"
@@ -174,43 +216,53 @@ const statText = computed(() => {
       : activeTab.value === "important"
         ? "重要待办"
         : "全部待办"
-  return `${prefix} ${stats.value.todo} 项 · 已完成 ${stats.value.done} 项`
+  return `${prefix} ${stats.todo} 项 · 已完成 ${stats.done} 项`
 })
 
-onLoad(() => {
-  fetchTodos("today")
-})
+const setTodos = (list) => {
+  allTodos.value = sortTodos(list || [])
+  try {
+    uni.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: allTodos.value })
+  } catch (e) {}
+}
 
-const fetchTodos = (tab = activeTab.value) => {
-  activeTab.value = tab
+const fetchTodosAll = () => {
   listLoading.value = true
   uni.request({
     url: `${BASE_URL}/todos/`,
     method: "GET",
-    data: { tab },
+    data: { tab: "all" },
     success: (res) => {
       if (res.statusCode === 200 && res.data) {
-        const list = res.data.items || []
-        // 前端按重要程度排序：3 > 2 > 1
-        list.sort((a, b) => (b.priority || 0) - (a.priority || 0))
-        items.value = list
-        stats.value = res.data.stats || { total: 0, done: 0, todo: 0 }
+        setTodos(res.data.items || [])
       } else {
         uni.showToast({ title: "加载失败", icon: "none" })
       }
     },
-    fail: () => {
-      uni.showToast({ title: "网络异常", icon: "none" })
-    },
+    fail: () => uni.showToast({ title: "网络异常", icon: "none" }),
     complete: () => {
       listLoading.value = false
     }
   })
 }
 
+onLoad(() => {
+  // 优先展示缓存
+  try {
+    const cached = uni.getStorageSync(TODO_CACHE_KEY)
+    if (cached && Array.isArray(cached.items)) {
+      setTodos(cached.items)
+      listLoading.value = false
+      if (cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+        return
+      }
+    }
+  } catch (e) {}
+  fetchTodosAll()
+})
+
 const switchTab = (tab) => {
-  if (tab === activeTab.value) return
-  fetchTodos(tab)
+  activeTab.value = tab
 }
 
 const deadlineLabel = (item) => {
@@ -233,7 +285,9 @@ const markDone = (item) => {
     data: { is_done: 1 },
     success: (res) => {
       if (res.statusCode === 200 && res.data?.item) {
-        fetchTodos(activeTab.value)
+        const updated = res.data.item
+        const list = allTodos.value.map((i) => i.id === updated.id ? updated : i)
+        setTodos(list)
       } else {
         uni.showToast({ title: "操作失败", icon: "none" })
       }
@@ -249,7 +303,9 @@ const undoDone = (item) => {
     data: { is_done: 0 },
     success: (res) => {
       if (res.statusCode === 200 && res.data?.item) {
-        fetchTodos(activeTab.value)
+        const updated = res.data.item
+        const list = allTodos.value.map((i) => i.id === updated.id ? updated : i)
+        setTodos(list)
       } else {
         uni.showToast({ title: "操作失败", icon: "none" })
       }
@@ -269,7 +325,8 @@ const removeTodo = (item) => {
         method: "POST",
         success: (resp) => {
           if (resp.statusCode === 200) {
-            fetchTodos(activeTab.value)
+            const list = allTodos.value.filter((t) => t.id !== item.id)
+            setTodos(list)
           } else {
             uni.showToast({ title: "删除失败", icon: "none" })
           }
@@ -318,7 +375,13 @@ const createTodo = () => {
     success: (res) => {
       if (res.statusCode === 201) {
         closeAdd()
-        fetchTodos(activeTab.value)
+        const newItem = res.data?.item
+        if (newItem) {
+          const list = [...allTodos.value, newItem]
+          setTodos(list)
+        } else {
+          fetchTodosAll()
+        }
         uni.showToast({ title: "已添加", icon: "success" })
       } else {
         uni.showToast({ title: "添加失败", icon: "none" })
