@@ -205,15 +205,19 @@ const _sfc_main = {
     const saveEdit = () => {
       if (!editId.value)
         return;
+      const payload = {};
+      if (editTitle.value !== void 0)
+        payload.title = editTitle.value;
+      if (editStartTime.value !== void 0)
+        payload.start_time = editStartTime.value;
+      if (editType.value !== void 0)
+        payload.event_type = editType.value;
+      if (editValueNumber.value !== void 0)
+        payload.value_number = editValueNumber.value;
       common_vendor.index.request({
         url: `https://k4ge.bar/api/events/${editId.value}/update/`,
         method: "POST",
-        data: {
-          title: editTitle.value,
-          start_time: editStartTime.value,
-          event_type: editType.value,
-          value_number: editValueNumber.value
-        },
+        data: payload,
         success: (res) => {
           if (res.statusCode === 200) {
             closeEdit();

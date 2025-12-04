@@ -347,15 +347,15 @@ const closeEdit = () => {
 
 const saveEdit = () => {
   if (!editId.value) return
+  const payload = {}
+  if (editTitle.value !== undefined) payload.title = editTitle.value
+  if (editStartTime.value !== undefined) payload.start_time = editStartTime.value
+  if (editType.value !== undefined) payload.event_type = editType.value
+  if (editValueNumber.value !== undefined) payload.value_number = editValueNumber.value
   uni.request({
     url: `https://k4ge.bar/api/events/${editId.value}/update/`,
     method: 'POST',
-    data: {
-      title: editTitle.value,
-      start_time: editStartTime.value,
-      event_type: editType.value,
-      value_number: editValueNumber.value
-    },
+    data: payload,
     success: (res) => {
       if (res.statusCode === 200) {
         closeEdit()
