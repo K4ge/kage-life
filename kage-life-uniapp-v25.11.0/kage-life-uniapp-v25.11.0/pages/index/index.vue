@@ -409,9 +409,22 @@ const saveEdit = () => {
     method: 'POST',
     data: payload,
     success: (res) => {
-      if (res.statusCode === 200) {
+      if (res.statusCode === 200 && res.data) {
+        // 本地更新当前日期的事件列表，无需重新请求
+        events.value = events.value.map((e) => {
+          if (e.id !== editId.value) return e
+          const t = res.data.start_time || e.time || ''
+          return {
+            ...e,
+            time: t,
+            title: res.data.title ?? e.title,
+            raw: { ...(e.raw || {}), ...res.data, start_time: t }
+          }
+        })
+        saveEventsCache(currentDate.value, events.value)
+        // 编辑事件后刷新待办缓存，保持联动
+        prefetchTodosAll({ force: true })
         closeEdit()
-        fetchEvents()
         uni.showToast({ title: '已保存', icon: 'success' })
       } else {
         uni.showToast({ title: '保存失败', icon: 'none' })
@@ -423,18 +436,36 @@ const saveEdit = () => {
 
 const deleteEvent = () => {
   if (!editId.value) return
+  const delId = editId.value
   uni.showModal({
     title: '确认删除？',
     content: editTitle.value || '',
     success: (res) => {
       if (!res.confirm) return
       uni.request({
-        url: `${BASE_URL}/events/${editId.value}/delete/`,
+        url: `${BASE_URL}/events/${delId}/delete/`,
         method: 'POST',
         success: (resp) => {
-          if (resp.statusCode === 200) {
+          if (resp.statusCode === 200 || resp.statusCode === 404) {
+            // 404 视为已不存在，同步移除本地缓存以保持一致
+            events.value = events.value.filter((e) => e.id !== delId)
+            saveEventsCache(currentDate.value, events.value)
+            // 同步待办缓存：关联的 todo 置为未完成并清理 event_id
+            try {
+              const cachedTodo = uni.getStorageSync(TODO_CACHE_KEY)
+              if (cachedTodo && Array.isArray(cachedTodo.items)) {
+                const updatedTodos = cachedTodo.items.map((t) => {
+                  if (t.event_id === delId) {
+                    return { ...t, is_done: 0, done_at: null, event_id: null }
+                  }
+                  return t
+                })
+                uni.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: updatedTodos })
+              }
+            } catch (e) {}
+            // 刷新待办缓存，确保最新
+            prefetchTodosAll({ force: true })
             closeEdit()
-            fetchEvents()
             uni.showToast({ title: '已删除', icon: 'success' })
           } else {
             uni.showToast({ title: '删除失败', icon: 'none' })
@@ -447,10 +478,10 @@ const deleteEvent = () => {
 }
 
 // 预取待办，给待办页用缓存秒开
-const prefetchTodosAll = () => {
+const prefetchTodosAll = ({ force = false } = {}) => {
   try {
     const cached = uni.getStorageSync(TODO_CACHE_KEY)
-    if (cached && cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+    if (!force && cached && cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
       return
     }
   } catch (e) {}

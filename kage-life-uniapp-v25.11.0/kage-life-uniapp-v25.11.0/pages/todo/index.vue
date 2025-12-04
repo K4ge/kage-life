@@ -24,12 +24,12 @@
         v-for="item in visibleTodos"
         :key="item.id"
         class="todo-card"
-        :class="['priority-' + item.priority, { 'is-done': item.is_done }]"
+        :class="cardClasses(item)"
       >
         <view class="left-bar"></view>
         <view class="card-content">
           <view class="card-header">
-            <text class="card-title" :class="{ done: item.is_done }">
+            <text class="card-title" :class="{ done: isDone(item) }">
               {{ item.title }}
             </text>
             <text class="card-time" v-if="deadlineLabel(item)">
@@ -44,7 +44,7 @@
           <view class="card-actions">
             <view
               class="btn primary"
-              v-if="!item.is_done"
+              v-if="!isDone(item)"
               @tap="markDone(item)"
             >
               完成
@@ -132,6 +132,7 @@ import { onLoad } from "@dcloudio/uni-app"
 const BASE_URL = "https://k4ge.bar/api"
 const TODO_CACHE_KEY = "cached_todos"
 const CACHE_TTL_MS = 2 * 60 * 1000
+const EVENT_CACHE_PREFIX = "cached_events"
 
 const todayStr = () => {
   const d = new Date()
@@ -184,7 +185,23 @@ const sortTodos = (list) => {
 
 const filterByTab = (tab, list) => {
   const today = todayStr()
-  if (tab === "today") return list.filter((i) => i.deadline_date === today)
+  const toMs = (d) => {
+    if (!d) return null
+    const [y, m, day] = d.split("-").map(Number)
+    return new Date(y, m - 1, day).getTime()
+  }
+  const todayMs = toMs(today)
+
+  if (tab === "today") {
+    return list.filter((i) => {
+      const ms = toMs(i.deadline_date)
+      if (ms === null) return false
+      if (Number(i.is_done) === 1) {
+        return ms === todayMs // 已完成只看今天
+      }
+      return ms <= todayMs    // 未完成包含今天及逾期
+    })
+  }
   if (tab === "important") return list.filter((i) => Number(i.priority) === 3)
   if (tab === "done") return list.filter((i) => Number(i.is_done) === 1)
   return list
@@ -219,11 +236,38 @@ const statText = computed(() => {
   return `${prefix} ${stats.todo} 项 · 已完成 ${stats.done} 项`
 })
 
+const normalizeTodo = (t) => ({
+  ...t,
+  is_done: Number(t.is_done) || 0,
+  priority: Number(t.priority) || 0,
+})
+
 const setTodos = (list) => {
-  allTodos.value = sortTodos(list || [])
+  allTodos.value = sortTodos((list || []).map(normalizeTodo))
   try {
     uni.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: allTodos.value })
   } catch (e) {}
+}
+
+const applyLocalStatus = (todoId, isDoneFlag) => {
+  const nowStr = (() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    const hh = String(d.getHours()).padStart(2, "0")
+    const mm = String(d.getMinutes()).padStart(2, "0")
+    return `${y}-${m}-${day} ${hh}:${mm}`
+  })()
+  const updated = allTodos.value.map((i) => {
+    if (i.id !== todoId) return i
+    return normalizeTodo({
+      ...i,
+      is_done: isDoneFlag ? 1 : 0,
+      done_at: isDoneFlag ? nowStr : null
+    })
+  })
+  setTodos(updated)
 }
 
 const fetchTodosAll = () => {
@@ -267,27 +311,45 @@ const switchTab = (tab) => {
 
 const deadlineLabel = (item) => {
   const dateStr = item.deadline_date
+  if (!dateStr) return "未设置"
+  const toMs = (d) => {
+    const [y, m, day] = d.split("-").map(Number)
+    return new Date(y, m - 1, day).getTime()
+  }
+  const today = todayStr()
+  const todayMs = toMs(today)
+  const ms = toMs(dateStr)
   let label = ""
-  if (dateStr === todayStr()) {
-    label = "今天"
-  } else if (dateStr === tomorrowStr()) {
-    label = "明天"
+  if (isDone(item)) {
+    if (ms === todayMs) label = "今天"
+    else label = dateStr
   } else {
-    label = dateStr || "未设置"
+    if (ms === todayMs) {
+      label = "今天"
+    } else if (ms < todayMs) {
+      const diffDays = Math.max(1, Math.round((todayMs - ms) / 86400000))
+      label = `逾期${diffDays}天`
+    } else {
+      label = dateStr
+    }
   }
   return label
 }
 
 const markDone = (item) => {
+  const eventDate = item.deadline_date || todayStr()
+  applyLocalStatus(item.id, 1)
   uni.request({
     url: `${BASE_URL}/todos/${item.id}/status/`,
     method: "POST",
     data: { is_done: 1 },
     success: (res) => {
       if (res.statusCode === 200 && res.data?.item) {
-        const updated = res.data.item
+        const updated = normalizeTodo({ ...res.data.item, is_done: 1 })
         const list = allTodos.value.map((i) => i.id === updated.id ? updated : i)
         setTodos(list)
+        // 操作后直接刷新对应日期的事件缓存，确保事件页同步
+        refreshEventCache(eventDate)
       } else {
         uni.showToast({ title: "操作失败", icon: "none" })
       }
@@ -297,15 +359,19 @@ const markDone = (item) => {
 }
 
 const undoDone = (item) => {
+  const eventDate = item.deadline_date || todayStr()
+  applyLocalStatus(item.id, 0)
+
   uni.request({
     url: `${BASE_URL}/todos/${item.id}/status/`,
     method: "POST",
     data: { is_done: 0 },
     success: (res) => {
       if (res.statusCode === 200 && res.data?.item) {
-        const updated = res.data.item
+        const updated = normalizeTodo({ ...res.data.item, is_done: 0 })
         const list = allTodos.value.map((i) => i.id === updated.id ? updated : i)
         setTodos(list)
+        refreshEventCache(eventDate)
       } else {
         uni.showToast({ title: "操作失败", icon: "none" })
       }
@@ -327,6 +393,7 @@ const removeTodo = (item) => {
           if (resp.statusCode === 200) {
             const list = allTodos.value.filter((t) => t.id !== item.id)
             setTodos(list)
+            refreshEventCache(item.deadline_date || todayStr())
           } else {
             uni.showToast({ title: "删除失败", icon: "none" })
           }
@@ -337,9 +404,39 @@ const removeTodo = (item) => {
   })
 }
 
+// 状态判断，避免字符串 "0"/"1" 导致样式异常
+const isDone = (todo) => Number(todo?.is_done) === 1
+const cardClasses = (item) => {
+  const done = isDone(item)
+  return ['priority-' + item.priority, done ? 'is-done' : 'not-done']
+}
+
 const goTimeline = () => {
   uni.redirectTo({
     url: "/pages/index/index"
+  })
+}
+
+// ------- 事件缓存同步，保持与待办联动 -------
+const eventCacheKey = (date) => `${EVENT_CACHE_PREFIX}_${date || todayStr()}`
+
+const refreshEventCache = (dateParam) => {
+  const date = dateParam || todayStr()
+  uni.request({
+    url: `${BASE_URL}/events/`,
+    method: "GET",
+    data: { date },
+    success: (res) => {
+      if (res.statusCode === 200 && res.data && Array.isArray(res.data.events)) {
+        const list = res.data.events.map(e => ({
+          id: e.id,
+          time: e.start_time || "",
+          title: e.title || "",
+          raw: e,
+        }))
+        uni.setStorageSync(eventCacheKey(date), { ts: Date.now(), items: list })
+      }
+    },
   })
 }
 
@@ -539,7 +636,26 @@ const createTodo = () => {
 }
 
 .todo-card.is-done {
-  background: #f6f7fb;
+  background: #f2f4f8;
+}
+.todo-card.not-done {
+  background: #ffffff;
+}
+.todo-card.is-done .card-title {
+  color: #93a0b4;
+  text-decoration: line-through;
+}
+.todo-card.not-done .card-title {
+  color: #1f2430;
+  text-decoration: none;
+}
+.todo-card.is-done .card-actions .btn.primary {
+  background: #e6e9f2;
+  color: #6f7a91;
+}
+.todo-card.not-done .card-actions .btn.primary {
+  background: #eef2ff;
+  color: #3a4cce;
 }
 
 .empty {

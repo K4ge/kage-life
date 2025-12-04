@@ -344,7 +344,7 @@ def todo_status(request, todo_id: int):
         return JsonResponse({'error': 'is_done is required'}, status=400)
 
     is_done_flag = 1 if str(is_done_raw) in ['1', 'true', 'True', 'yes', 'on'] else 0
-    now_local = timezone.localtime(timezone.now())
+    now_local = timezone.now().astimezone(ZoneInfo('Asia/Shanghai'))
 
     created_event = None
 
