@@ -358,7 +358,8 @@ def todo_status(request, todo_id: int):
                 start_time_val = now_local.time()
 
             event = Event.objects.create(
-                date=todo.deadline_date or now_local.date(),
+                # 事件日期固定用当前北京日期，避免逾期待办写入过去日期
+                date=now_local.date(),
                 event_type="todo",
                 title=todo.title,
                 start_time=start_time_val,
