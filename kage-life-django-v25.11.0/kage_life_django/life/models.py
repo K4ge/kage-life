@@ -61,6 +61,7 @@ class Todo(models.Model):
     deadline_time = models.TimeField(null=True, blank=True)
     is_done = models.SmallIntegerField(default=0)  # 0 未完成 1 已完成
     done_at = models.DateTimeField(null=True, blank=True)
+    event_id = models.BigIntegerField(null=True, blank=True)
     note = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
