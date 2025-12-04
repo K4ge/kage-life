@@ -72,6 +72,56 @@
         <text class="nav-label main">Todo</text>
       </view>
     </view>
+
+    <!-- 右下角添加按钮 -->
+    <view class="fab" @tap="openAdd">
+      <text class="fab-plus">+</text>
+    </view>
+
+    <!-- 添加弹窗 -->
+    <view v-if="showAdd" class="add-mask" @tap="closeAdd">
+      <view class="add-panel" @tap.stop>
+        <view class="add-title">新建待办</view>
+
+        <view class="add-field">
+          <text class="add-label">标题</text>
+          <input class="add-input" v-model="newTitle" placeholder="请输入标题" />
+        </view>
+
+        <view class="add-field">
+          <text class="add-label">日期</text>
+          <picker mode="date" :value="newDate" @change="(e)=>{newDate = e.detail.value}">
+            <view class="add-input">{{ newDate }}</view>
+          </picker>
+        </view>
+
+        <view class="add-field">
+          <text class="add-label">重要程度</text>
+          <view class="priority-row">
+            <view
+              class="pri-btn"
+              :class="{ active: newPriority === 3 }"
+              @tap="pickPriority(3)"
+            >重要</view>
+            <view
+              class="pri-btn"
+              :class="{ active: newPriority === 2 }"
+              @tap="pickPriority(2)"
+            >普通</view>
+            <view
+              class="pri-btn"
+              :class="{ active: newPriority === 1 }"
+              @tap="pickPriority(1)"
+            >不急</view>
+          </view>
+        </view>
+
+        <view class="add-actions">
+          <view class="add-btn" @tap="closeAdd">取消</view>
+          <view class="add-btn primary" @tap="createTodo">保存</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -79,19 +129,7 @@
 import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
-const BASE_URL = "http://127.0.0.1:8000/api"
-
-const tabs = [
-  { key: "today", label: "今天到期" },
-  { key: "all", label: "全部" },
-  { key: "important", label: "仅重要" },
-  { key: "done", label: "已完成" }
-]
-
-const activeTab = ref("today")
-const items = ref([])
-const stats = ref({ total: 0, done: 0, todo: 0 })
-const listLoading = ref(false)
+const BASE_URL = "https://k4ge.bar/api"
 
 const todayStr = () => {
   const d = new Date()
@@ -109,6 +147,22 @@ const tomorrowStr = () => {
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
 }
+
+const tabs = [
+  { key: "today", label: "今天到期" },
+  { key: "all", label: "全部" },
+  { key: "important", label: "仅重要" },
+  { key: "done", label: "已完成" }
+]
+
+const activeTab = ref("today")
+const items = ref([])
+const stats = ref({ total: 0, done: 0, todo: 0 })
+const listLoading = ref(false)
+const showAdd = ref(false)
+const newTitle = ref("")
+const newDate = ref(todayStr())
+const newPriority = ref(2)
 
 const statText = computed(() => {
   if (activeTab.value === "done") {
@@ -229,6 +283,48 @@ const removeTodo = (item) => {
 const goTimeline = () => {
   uni.redirectTo({
     url: "/pages/index/index"
+  })
+}
+
+const openAdd = () => {
+  newTitle.value = ""
+  newDate.value = todayStr()
+  newPriority.value = 2
+  showAdd.value = true
+}
+
+const closeAdd = () => {
+  showAdd.value = false
+}
+
+const pickPriority = (val) => {
+  newPriority.value = val
+}
+
+const createTodo = () => {
+  const title = newTitle.value.trim()
+  if (!title) {
+    uni.showToast({ title: "请输入标题", icon: "none" })
+    return
+  }
+  uni.request({
+    url: `${BASE_URL}/todos/create/`,
+    method: "POST",
+    data: {
+      title,
+      deadline_date: newDate.value,
+      priority: newPriority.value
+    },
+    success: (res) => {
+      if (res.statusCode === 201) {
+        closeAdd()
+        fetchTodos(activeTab.value)
+        uni.showToast({ title: "已添加", icon: "success" })
+      } else {
+        uni.showToast({ title: "添加失败", icon: "none" })
+      }
+    },
+    fail: () => uni.showToast({ title: "网络异常", icon: "none" })
   })
 }
 </script>
@@ -428,5 +524,117 @@ const goTimeline = () => {
 .nav-label.main {
   font-size: 26rpx;
   letter-spacing: 0.4rpx;
+}
+
+.fab {
+  position: fixed;
+  right: 34rpx;
+  bottom: 180rpx;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eef2ff, #e4e9ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12rpx 24rpx rgba(0, 0, 0, 0.14);
+  z-index: 950;
+}
+
+.fab-plus {
+  color: #3d4ed1;
+  font-size: 48rpx;
+  line-height: 1;
+}
+
+.add-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.add-panel {
+  width: 84%;
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 28rpx 26rpx 24rpx;
+  box-shadow: 0 18rpx 40rpx rgba(0, 0, 0, 0.18);
+}
+
+.add-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 18rpx;
+  color: #1f2430;
+}
+
+.add-field {
+  margin-bottom: 18rpx;
+}
+
+.add-label {
+  font-size: 24rpx;
+  color: #60697b;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.add-input {
+  width: 100%;
+  border: 1rpx solid #e5e7ef;
+  border-radius: 12rpx;
+  padding: 14rpx 16rpx;
+  height: 72rpx;
+  line-height: 44rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.priority-row {
+  display: flex;
+  gap: 12rpx;
+}
+
+.pri-btn {
+  flex: 1;
+  border: 1rpx solid #e5e7ef;
+  border-radius: 12rpx;
+  padding: 14rpx 0;
+  text-align: center;
+  font-size: 24rpx;
+  color: #4c5260;
+}
+
+.pri-btn.active {
+  background: #eef2ff;
+  color: #3d4ed1;
+  border-color: #d9defc;
+}
+
+.add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  margin-top: 10rpx;
+}
+
+.add-btn {
+  padding: 12rpx 22rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  border: 1rpx solid #e5e7ef;
+}
+
+.add-btn.primary {
+  background: #f4f6ff;
+  color: #3d4ed1;
+  border-color: #d9defc;
 }
 </style>
