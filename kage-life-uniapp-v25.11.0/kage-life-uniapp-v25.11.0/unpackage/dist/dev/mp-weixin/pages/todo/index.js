@@ -3,19 +3,12 @@ const common_vendor = require("../../common/vendor.js");
 const BASE_URL = "https://k4ge.bar/api";
 const TODO_CACHE_KEY = "cached_todos";
 const CACHE_TTL_MS = 2 * 60 * 1e3;
+const EVENT_CACHE_PREFIX = "cached_events";
 const _sfc_main = {
   __name: "index",
   setup(__props) {
     const todayStr = () => {
       const d = /* @__PURE__ */ new Date();
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    };
-    const tomorrowStr = () => {
-      const d = /* @__PURE__ */ new Date();
-      d.setDate(d.getDate() + 1);
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
@@ -56,8 +49,24 @@ const _sfc_main = {
     };
     const filterByTab = (tab, list) => {
       const today = todayStr();
-      if (tab === "today")
-        return list.filter((i) => i.deadline_date === today);
+      const toMs = (d) => {
+        if (!d)
+          return null;
+        const [y, m, day] = d.split("-").map(Number);
+        return new Date(y, m - 1, day).getTime();
+      };
+      const todayMs = toMs(today);
+      if (tab === "today") {
+        return list.filter((i) => {
+          const ms = toMs(i.deadline_date);
+          if (ms === null)
+            return false;
+          if (Number(i.is_done) === 1) {
+            return ms === todayMs;
+          }
+          return ms <= todayMs;
+        });
+      }
       if (tab === "important")
         return list.filter((i) => Number(i.priority) === 3);
       if (tab === "done")
@@ -85,12 +94,38 @@ const _sfc_main = {
       const prefix = activeTab.value === "today" ? "今日待办" : activeTab.value === "important" ? "重要待办" : "全部待办";
       return `${prefix} ${stats.todo} 项 · 已完成 ${stats.done} 项`;
     });
+    const normalizeTodo = (t) => ({
+      ...t,
+      is_done: Number(t.is_done) || 0,
+      priority: Number(t.priority) || 0
+    });
     const setTodos = (list) => {
-      allTodos.value = sortTodos(list || []);
+      allTodos.value = sortTodos((list || []).map(normalizeTodo));
       try {
         common_vendor.index.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: allTodos.value });
       } catch (e) {
       }
+    };
+    const applyLocalStatus = (todoId, isDoneFlag) => {
+      const nowStr = (() => {
+        const d = /* @__PURE__ */ new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        return `${y}-${m}-${day} ${hh}:${mm}`;
+      })();
+      const updated = allTodos.value.map((i) => {
+        if (i.id !== todoId)
+          return i;
+        return normalizeTodo({
+          ...i,
+          is_done: isDoneFlag ? 1 : 0,
+          done_at: isDoneFlag ? nowStr : null
+        });
+      });
+      setTodos(updated);
     };
     const fetchTodosAll = () => {
       listLoading.value = true;
@@ -130,17 +165,36 @@ const _sfc_main = {
     };
     const deadlineLabel = (item) => {
       const dateStr = item.deadline_date;
+      if (!dateStr)
+        return "未设置";
+      const toMs = (d) => {
+        const [y, m, day] = d.split("-").map(Number);
+        return new Date(y, m - 1, day).getTime();
+      };
+      const today = todayStr();
+      const todayMs = toMs(today);
+      const ms = toMs(dateStr);
       let label = "";
-      if (dateStr === todayStr()) {
-        label = "今天";
-      } else if (dateStr === tomorrowStr()) {
-        label = "明天";
+      if (isDone(item)) {
+        if (ms === todayMs)
+          label = "今天";
+        else
+          label = dateStr;
       } else {
-        label = dateStr || "未设置";
+        if (ms === todayMs) {
+          label = "今天";
+        } else if (ms < todayMs) {
+          const diffDays = Math.max(1, Math.round((todayMs - ms) / 864e5));
+          label = `逾期${diffDays}天`;
+        } else {
+          label = dateStr;
+        }
       }
       return label;
     };
     const markDone = (item) => {
+      const eventDate = item.deadline_date || todayStr();
+      applyLocalStatus(item.id, 1);
       common_vendor.index.request({
         url: `${BASE_URL}/todos/${item.id}/status/`,
         method: "POST",
@@ -148,9 +202,10 @@ const _sfc_main = {
         success: (res) => {
           var _a;
           if (res.statusCode === 200 && ((_a = res.data) == null ? void 0 : _a.item)) {
-            const updated = res.data.item;
+            const updated = normalizeTodo({ ...res.data.item, is_done: 1 });
             const list = allTodos.value.map((i) => i.id === updated.id ? updated : i);
             setTodos(list);
+            refreshEventCache(eventDate);
           } else {
             common_vendor.index.showToast({ title: "操作失败", icon: "none" });
           }
@@ -159,6 +214,8 @@ const _sfc_main = {
       });
     };
     const undoDone = (item) => {
+      const eventDate = item.deadline_date || todayStr();
+      applyLocalStatus(item.id, 0);
       common_vendor.index.request({
         url: `${BASE_URL}/todos/${item.id}/status/`,
         method: "POST",
@@ -166,9 +223,10 @@ const _sfc_main = {
         success: (res) => {
           var _a;
           if (res.statusCode === 200 && ((_a = res.data) == null ? void 0 : _a.item)) {
-            const updated = res.data.item;
+            const updated = normalizeTodo({ ...res.data.item, is_done: 0 });
             const list = allTodos.value.map((i) => i.id === updated.id ? updated : i);
             setTodos(list);
+            refreshEventCache(eventDate);
           } else {
             common_vendor.index.showToast({ title: "操作失败", icon: "none" });
           }
@@ -190,6 +248,7 @@ const _sfc_main = {
               if (resp.statusCode === 200) {
                 const list = allTodos.value.filter((t) => t.id !== item.id);
                 setTodos(list);
+                refreshEventCache(item.deadline_date || todayStr());
               } else {
                 common_vendor.index.showToast({ title: "删除失败", icon: "none" });
               }
@@ -199,9 +258,34 @@ const _sfc_main = {
         }
       });
     };
+    const isDone = (todo) => Number(todo == null ? void 0 : todo.is_done) === 1;
+    const cardClasses = (item) => {
+      const done = isDone(item);
+      return ["priority-" + item.priority, done ? "is-done" : "not-done"];
+    };
     const goTimeline = () => {
       common_vendor.index.redirectTo({
         url: "/pages/index/index"
+      });
+    };
+    const eventCacheKey = (date) => `${EVENT_CACHE_PREFIX}_${date || todayStr()}`;
+    const refreshEventCache = (dateParam) => {
+      const date = dateParam || todayStr();
+      common_vendor.index.request({
+        url: `${BASE_URL}/events/`,
+        method: "GET",
+        data: { date },
+        success: (res) => {
+          if (res.statusCode === 200 && res.data && Array.isArray(res.data.events)) {
+            const list = res.data.events.map((e) => ({
+              id: e.id,
+              time: e.start_time || "",
+              title: e.title || "",
+              raw: e
+            }));
+            common_vendor.index.setStorageSync(eventCacheKey(date), { ts: Date.now(), items: list });
+          }
+        }
       });
     };
     const openAdd = () => {
@@ -265,7 +349,7 @@ const _sfc_main = {
         e: common_vendor.f(visibleTodos.value, (item, k0, i0) => {
           return common_vendor.e({
             a: common_vendor.t(item.title),
-            b: item.is_done ? 1 : "",
+            b: isDone(item) ? 1 : "",
             c: deadlineLabel(item)
           }, deadlineLabel(item) ? {
             d: common_vendor.t(deadlineLabel(item))
@@ -274,18 +358,15 @@ const _sfc_main = {
           }, item.note ? {
             f: common_vendor.t(item.note)
           } : {}, {
-            g: !item.is_done
-          }, !item.is_done ? {
+            g: !isDone(item)
+          }, !isDone(item) ? {
             h: common_vendor.o(($event) => markDone(item), item.id)
           } : {
             i: common_vendor.o(($event) => undoDone(item), item.id)
           }, {
             j: common_vendor.o(($event) => removeTodo(item), item.id),
             k: item.id,
-            l: common_vendor.n("priority-" + item.priority),
-            m: common_vendor.n({
-              "is-done": item.is_done
-            })
+            l: common_vendor.n(cardClasses(item))
           });
         })
       }, {

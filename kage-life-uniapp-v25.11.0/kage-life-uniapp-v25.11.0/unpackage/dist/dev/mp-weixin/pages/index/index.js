@@ -269,9 +269,21 @@ const _sfc_main = {
         method: "POST",
         data: payload,
         success: (res) => {
-          if (res.statusCode === 200) {
+          if (res.statusCode === 200 && res.data) {
+            events.value = events.value.map((e) => {
+              if (e.id !== editId.value)
+                return e;
+              const t = res.data.start_time || e.time || "";
+              return {
+                ...e,
+                time: t,
+                title: res.data.title ?? e.title,
+                raw: { ...e.raw || {}, ...res.data, start_time: t }
+              };
+            });
+            saveEventsCache(currentDate.value, events.value);
+            prefetchTodosAll({ force: true });
             closeEdit();
-            fetchEvents();
             common_vendor.index.showToast({ title: "已保存", icon: "success" });
           } else {
             common_vendor.index.showToast({ title: "保存失败", icon: "none" });
@@ -283,6 +295,7 @@ const _sfc_main = {
     const deleteEvent = () => {
       if (!editId.value)
         return;
+      const delId = editId.value;
       common_vendor.index.showModal({
         title: "确认删除？",
         content: editTitle.value || "",
@@ -290,12 +303,27 @@ const _sfc_main = {
           if (!res.confirm)
             return;
           common_vendor.index.request({
-            url: `${BASE_URL}/events/${editId.value}/delete/`,
+            url: `${BASE_URL}/events/${delId}/delete/`,
             method: "POST",
             success: (resp) => {
-              if (resp.statusCode === 200) {
+              if (resp.statusCode === 200 || resp.statusCode === 404) {
+                events.value = events.value.filter((e) => e.id !== delId);
+                saveEventsCache(currentDate.value, events.value);
+                try {
+                  const cachedTodo = common_vendor.index.getStorageSync(TODO_CACHE_KEY);
+                  if (cachedTodo && Array.isArray(cachedTodo.items)) {
+                    const updatedTodos = cachedTodo.items.map((t) => {
+                      if (t.event_id === delId) {
+                        return { ...t, is_done: 0, done_at: null, event_id: null };
+                      }
+                      return t;
+                    });
+                    common_vendor.index.setStorageSync(TODO_CACHE_KEY, { ts: Date.now(), items: updatedTodos });
+                  }
+                } catch (e) {
+                }
+                prefetchTodosAll({ force: true });
                 closeEdit();
-                fetchEvents();
                 common_vendor.index.showToast({ title: "已删除", icon: "success" });
               } else {
                 common_vendor.index.showToast({ title: "删除失败", icon: "none" });
@@ -306,10 +334,10 @@ const _sfc_main = {
         }
       });
     };
-    const prefetchTodosAll = () => {
+    const prefetchTodosAll = ({ force = false } = {}) => {
       try {
         const cached = common_vendor.index.getStorageSync(TODO_CACHE_KEY);
-        if (cached && cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+        if (!force && cached && cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
           return;
         }
       } catch (e) {
