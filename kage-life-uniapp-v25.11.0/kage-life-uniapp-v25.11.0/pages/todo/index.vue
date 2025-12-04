@@ -127,12 +127,14 @@
 
 <script setup>
 import { computed, ref } from "vue"
-import { onLoad } from "@dcloudio/uni-app"
+import { onLoad, onShow } from "@dcloudio/uni-app"
 
 const BASE_URL = "https://k4ge.bar/api"
 const TODO_CACHE_KEY = "cached_todos"
 const CACHE_TTL_MS = 2 * 60 * 1000
 const EVENT_CACHE_PREFIX = "cached_events"
+const EVENT_CACHE_TTL_MS = 2 * 60 * 1000
+const hasLoadedOnce = ref(false)
 
 const todayStr = () => {
   const d = new Date()
@@ -270,7 +272,9 @@ const applyLocalStatus = (todoId, isDoneFlag) => {
   setTodos(updated)
 }
 
-const fetchTodosAll = () => {
+const fetchTodosAll = ({ force = false } = {}) => {
+  if (hasLoadedOnce.value && !force) return
+  hasLoadedOnce.value = true
   listLoading.value = true
   uni.request({
     url: `${BASE_URL}/todos/`,
@@ -298,11 +302,19 @@ onLoad(() => {
       setTodos(cached.items)
       listLoading.value = false
       if (cached.ts && Date.now() - cached.ts < CACHE_TTL_MS) {
+        hasLoadedOnce.value = true
         return
       }
     }
   } catch (e) {}
+  // 缓存新鲜则不强制请求；需要更新时由 fetchTodosAll 内部决定
   fetchTodosAll()
+  prefetchEventsForToday()
+})
+
+onShow(() => {
+  // 每次进入待办页面时，刷新当日事件缓存，不阻塞待办展示
+  prefetchEventsForToday(true)
 })
 
 const switchTab = (tab) => {
@@ -337,7 +349,7 @@ const deadlineLabel = (item) => {
 }
 
 const markDone = (item) => {
-  const eventDate = item.deadline_date || todayStr()
+  const eventDate = todayStr() // 事件缓存按当前日期刷新
   applyLocalStatus(item.id, 1)
   uni.request({
     url: `${BASE_URL}/todos/${item.id}/status/`,
@@ -359,7 +371,7 @@ const markDone = (item) => {
 }
 
 const undoDone = (item) => {
-  const eventDate = item.deadline_date || todayStr()
+  const eventDate = todayStr()
   applyLocalStatus(item.id, 0)
 
   uni.request({
@@ -393,7 +405,7 @@ const removeTodo = (item) => {
           if (resp.statusCode === 200) {
             const list = allTodos.value.filter((t) => t.id !== item.id)
             setTodos(list)
-            refreshEventCache(item.deadline_date || todayStr())
+            refreshEventCache(todayStr())
           } else {
             uni.showToast({ title: "删除失败", icon: "none" })
           }
@@ -422,6 +434,32 @@ const eventCacheKey = (date) => `${EVENT_CACHE_PREFIX}_${date || todayStr()}`
 
 const refreshEventCache = (dateParam) => {
   const date = dateParam || todayStr()
+  uni.request({
+    url: `${BASE_URL}/events/`,
+    method: "GET",
+    data: { date },
+    success: (res) => {
+      if (res.statusCode === 200 && res.data && Array.isArray(res.data.events)) {
+        const list = res.data.events.map(e => ({
+          id: e.id,
+          time: e.start_time || "",
+          title: e.title || "",
+          raw: e,
+        }))
+        uni.setStorageSync(eventCacheKey(date), { ts: Date.now(), items: list })
+      }
+    },
+  })
+}
+
+// 进入待办页时预取当日事件，保持事件页缓存新鲜
+const prefetchEventsForToday = (force = false) => {
+  const date = todayStr()
+  try {
+    const cache = uni.getStorageSync(eventCacheKey(date))
+    if (!force && cache && cache.ts && Date.now() - cache.ts < EVENT_CACHE_TTL_MS) return
+  } catch (e) {}
+
   uni.request({
     url: `${BASE_URL}/events/`,
     method: "GET",

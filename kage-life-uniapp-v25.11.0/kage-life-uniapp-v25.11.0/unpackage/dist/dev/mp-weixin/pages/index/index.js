@@ -32,7 +32,7 @@ const _sfc_main = {
       loadEventsFromCache(currentDate.value);
       fetchEvents(currentDate.value);
       loadEventTypes();
-      prefetchTodosAll();
+      prefetchTodosAll({ force: true });
     });
     const cacheKeyForDate = (date) => `${EVENT_CACHE_PREFIX}_${date}`;
     const loadEventsFromCache = (dateParam) => {
