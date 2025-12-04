@@ -372,22 +372,22 @@ const goTodo = () => {
 
 .fab {
   position: fixed;
-  right: 40rpx;
-  bottom: 180rpx; /* 提高以避开底部导航 */
-  width: 90rpx;
-  height: 90rpx;
+  right: 34rpx;
+  bottom: 180rpx; /* 与待办页一致，避免切换位移 */
+  width: 88rpx;
+  height: 88rpx;
   border-radius: 50%;
   background: linear-gradient(135deg, #eef2ff, #e4e9ff);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12rpx 26rpx rgba(0, 0, 0, 0.16);
+  box-shadow: 0 12rpx 24rpx rgba(0, 0, 0, 0.14);
   z-index: 950;
 }
 
 .fab-plus {
   color: #3d4ed1;
-  font-size: 52rpx;
+  font-size: 48rpx;
   line-height: 1;
 }
 
