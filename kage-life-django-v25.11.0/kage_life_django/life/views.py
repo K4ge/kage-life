@@ -342,11 +342,17 @@ def todo_status(request, todo_id: int):
     if is_done_flag:
         # 已完成：若没有关联事件则新建
         if not todo.event_id:
+            # 取待办的截止时间作为起点，如果没有则用当前北京时间的时分
+            if todo.deadline_time:
+                start_time_val = todo.deadline_time
+            else:
+                start_time_val = now_local.time()
+
             event = Event.objects.create(
-                date=now_local.date(),
+                date=todo.deadline_date or now_local.date(),
                 event_type="todo",
                 title=todo.title,
-                start_time=todo.deadline_time,
+                start_time=start_time_val,
                 created_at=now_local,
                 updated_at=now_local,
             )
