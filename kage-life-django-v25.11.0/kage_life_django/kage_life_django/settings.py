@@ -12,6 +12,21 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+# 读取数据库密码：优先 pass.txt，其次环境变量 MYSQL_PASSWORD，最后默认'root'
+def load_db_password():
+    base_dir = Path(__file__).resolve().parent.parent
+    pass_file = base_dir / "pass.txt"
+    if pass_file.exists():
+        try:
+            return pass_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            pass
+    import os
+    env_pwd = os.environ.get("MYSQL_PASSWORD")
+    if env_pwd:
+        return env_pwd
+    return "root"
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -78,7 +93,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.mysql",
         'NAME': 'kage_life',      # 刚才在 MySQL 里建的库名
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': load_db_password(),
         'HOST': '127.0.0.1',      # 本地
         'PORT': '3306',
         'OPTIONS': {

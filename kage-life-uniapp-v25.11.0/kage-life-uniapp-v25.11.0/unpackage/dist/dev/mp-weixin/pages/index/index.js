@@ -4,6 +4,12 @@ const _sfc_main = {
   __name: "index",
   setup(__props) {
     const events = common_vendor.ref([]);
+    const showEdit = common_vendor.ref(false);
+    const editId = common_vendor.ref(null);
+    const editTitle = common_vendor.ref("");
+    const editStartTime = common_vendor.ref("");
+    const editType = common_vendor.ref("");
+    const editValueNumber = common_vendor.ref("");
     const loading = common_vendor.ref(false);
     const errorMsg = common_vendor.ref("");
     const showAddPanel = common_vendor.ref(false);
@@ -37,12 +43,12 @@ const _sfc_main = {
             }));
           } else {
             errorMsg.value = "接口返回异常";
-            common_vendor.index.__f__("log", "at pages/index/index.vue:128", "接口异常", res);
+            common_vendor.index.__f__("log", "at pages/index/index.vue:167", "接口异常", res);
           }
         },
         fail: (err) => {
           errorMsg.value = "网络请求失败";
-          common_vendor.index.__f__("error", "at pages/index/index.vue:133", "请求失败", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:172", "请求失败", err);
         },
         complete: () => {
           loading.value = false;
@@ -61,7 +67,7 @@ const _sfc_main = {
           presetOptions.value = res.data.event_types.map((item) => item.description || item.type_name);
         },
         fail: (err) => {
-          common_vendor.index.__f__("error", "at pages/index/index.vue:153", "加载事件类型失败", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:192", "加载事件类型失败", err);
           common_vendor.index.showToast({ title: "加载事件类型失败", icon: "none" });
         }
       });
@@ -184,6 +190,68 @@ const _sfc_main = {
         url: "/pages/todo/index"
       });
     };
+    const openEdit = (item) => {
+      var _a, _b;
+      editId.value = item.id;
+      editTitle.value = item.title || "";
+      editStartTime.value = item.time || "";
+      editType.value = ((_a = item.raw) == null ? void 0 : _a.event_type) || "";
+      editValueNumber.value = ((_b = item.raw) == null ? void 0 : _b.value_number) ?? "";
+      showEdit.value = true;
+    };
+    const closeEdit = () => {
+      showEdit.value = false;
+    };
+    const saveEdit = () => {
+      if (!editId.value)
+        return;
+      common_vendor.index.request({
+        url: `https://k4ge.bar/api/events/${editId.value}/update/`,
+        method: "POST",
+        data: {
+          title: editTitle.value,
+          start_time: editStartTime.value,
+          event_type: editType.value,
+          value_number: editValueNumber.value
+        },
+        success: (res) => {
+          if (res.statusCode === 200) {
+            closeEdit();
+            fetchEvents();
+            common_vendor.index.showToast({ title: "已保存", icon: "success" });
+          } else {
+            common_vendor.index.showToast({ title: "保存失败", icon: "none" });
+          }
+        },
+        fail: () => common_vendor.index.showToast({ title: "网络异常", icon: "none" })
+      });
+    };
+    const deleteEvent = () => {
+      if (!editId.value)
+        return;
+      common_vendor.index.showModal({
+        title: "确认删除？",
+        content: editTitle.value || "",
+        success: (res) => {
+          if (!res.confirm)
+            return;
+          common_vendor.index.request({
+            url: `https://k4ge.bar/api/events/${editId.value}/delete/`,
+            method: "POST",
+            success: (resp) => {
+              if (resp.statusCode === 200) {
+                closeEdit();
+                fetchEvents();
+                common_vendor.index.showToast({ title: "已删除", icon: "success" });
+              } else {
+                common_vendor.index.showToast({ title: "删除失败", icon: "none" });
+              }
+            },
+            fail: () => common_vendor.index.showToast({ title: "网络异常", icon: "none" })
+          });
+        }
+      });
+    };
     return (_ctx, _cache) => {
       return common_vendor.e({
         a: common_vendor.t(currentDate.value),
@@ -198,7 +266,8 @@ const _sfc_main = {
               return {
                 a: common_vendor.t(item.time),
                 b: common_vendor.t(item.title),
-                c: item.id
+                c: item.id,
+                d: common_vendor.o(($event) => openEdit(item), item.id)
               };
             })
           } : {}, {
@@ -223,8 +292,25 @@ const _sfc_main = {
         }),
         m: common_vendor.o(onCancelAdd)
       } : {}, {
-        n: common_vendor.o(onAdd),
-        o: common_vendor.o(goTodo)
+        n: showEdit.value
+      }, showEdit.value ? {
+        o: editTitle.value,
+        p: common_vendor.o(($event) => editTitle.value = $event.detail.value),
+        q: editStartTime.value,
+        r: common_vendor.o(($event) => editStartTime.value = $event.detail.value),
+        s: editType.value,
+        t: common_vendor.o(($event) => editType.value = $event.detail.value),
+        v: editValueNumber.value,
+        w: common_vendor.o(($event) => editValueNumber.value = $event.detail.value),
+        x: common_vendor.o(closeEdit),
+        y: common_vendor.o(deleteEvent),
+        z: common_vendor.o(saveEdit),
+        A: common_vendor.o(() => {
+        }),
+        B: common_vendor.o(closeEdit)
+      } : {}, {
+        C: common_vendor.o(onAdd),
+        D: common_vendor.o(goTodo)
       });
     };
   }
