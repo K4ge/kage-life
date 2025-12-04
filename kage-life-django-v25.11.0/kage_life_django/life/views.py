@@ -208,6 +208,7 @@ def _serialize_todo(todo):
         'deadline_time': todo.deadline_time.strftime('%H:%M') if todo.deadline_time else None,
         'is_done': int(todo.is_done),
         'done_at': done_at_str,
+        'event_id': todo.event_id,
         'note': todo.note or '',
     }
 
@@ -335,13 +336,39 @@ def todo_status(request, todo_id: int):
 
     is_done_flag = 1 if str(is_done_raw) in ['1', 'true', 'True', 'yes', 'on'] else 0
     now_local = timezone.localtime(timezone.now())
+
+    created_event = None
+
+    if is_done_flag:
+        # 已完成：若没有关联事件则新建
+        if not todo.event_id:
+            event = Event.objects.create(
+                date=now_local.date(),
+                event_type="todo",
+                title=todo.title,
+                start_time=todo.deadline_time,
+                created_at=now_local,
+                updated_at=now_local,
+            )
+            todo.event_id = event.id
+            created_event = event.id
+        todo.done_at = now_local
+    else:
+        # 撤销完成：删除关联事件
+        if todo.event_id:
+            try:
+                Event.objects.filter(id=todo.event_id).delete()
+            except Exception:
+                pass
+            todo.event_id = None
+        todo.done_at = None
+
     todo.is_done = is_done_flag
-    todo.done_at = now_local if is_done_flag else None
     todo.updated_at = now_local
-    todo.save(update_fields=['is_done', 'done_at', 'updated_at'])
+    todo.save(update_fields=['is_done', 'done_at', 'updated_at', 'event_id'])
 
     return JsonResponse(
-        {'item': _serialize_todo(todo)},
+        {'item': _serialize_todo(todo), 'created_event_id': created_event},
         json_dumps_params={'ensure_ascii': False},
     )
 
